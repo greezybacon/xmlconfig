@@ -34,16 +34,16 @@
     
     <str key="key8">This is a reference to a %(other:foreign) namespace</str>
 
-    <!-- <str key="key6">
+    <str key="chosen">
         <choose>
             <default>
                 default
             </default>
-            <when test="%(:hostname)=='mypc'">
+            <when test="hostname=='Jared-Hancocks-MacBook-Pro.local'">
                 mypc
             </when>
         </choose>
-    </str> -->
+    </str>s
     
     <str key="import" src="file:file.txt"/>
 </constants> 

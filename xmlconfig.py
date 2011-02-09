@@ -14,9 +14,7 @@ from xml.sax import saxutils, handler, make_parser
 from decimal import Decimal
 
 class XMLConfig(handler.ContentHandler, object):
-    content_types = {
-        "constants": "Constants"
-    }
+    content_types = {}
     default_options = {}
     required_options = []
     
@@ -31,21 +29,25 @@ class XMLConfig(handler.ContentHandler, object):
         if attrs is not None: self.parse_options(attrs)
 
     def parse_options(self, attrs):
-        self.options = self.default_options.copy()
+        self._options = self.default_options.copy()
         for name in attrs.getNames():
-            self.options[name] = attrs[name]
+            self._options[name] = attrs[name]
 
         # XXX: Required options
         for name in self.required_options:
-            if name not in self.options:
+            if name not in self._options:
                 raise ValueError("{0}: {1} required".format(self.type, name))
+                
+    # XXX: Should be a verb
+    def option(self, name):
+        return self._options[name]
 
     def startElement(self, name, attrs):
         if not name in self.content_types:
             # Ignore the <config> element, and ignore other, non <constant>
             # elements
             return
-        self.constants.append(globals()[self.content_types[name]](name, attrs,
+        self.constants.append(self.content_types[name](name, attrs,
             parent=self, parser=self.parser))
         self.parser.setContentHandler(self.constants[-1])
         
@@ -74,7 +76,16 @@ class XMLConfig(handler.ContentHandler, object):
                 except:
                     pass
         raise KeyError("{0}: Cannot lookup reference".format(key))
+        
+    @classmethod
+    def register_type(handler, name):
+        def register(clas):
+            # XXX: clas should be a subclass of Constants
+            handler.content_types[name] = clas
+            return clas
+        return register
 
+@XMLConfig.register_type("constants")
 class Constants(XMLConfig, dict):
 
     content_types = {}
@@ -108,24 +119,14 @@ class Constants(XMLConfig, dict):
 
     @property
     def namespace(self):
-        if 'namespace' in self.options:
-            return self.options['namespace']
+        if 'namespace' in self._options:
+            return self.option('namespace')
         return self.parent.namespace
-
-    @staticmethod
-    def register_type(name):
-        def register(clas):
-            # XXX: clas should be a subclass of Constants
-            Constants.content_types[name] = clas
-            return clas
-        return register
 
 @Constants.register_type("str")
 class SimpleConstant(XMLConfig):
     
-    content_types={
-        "choose": "ChooseHandler"
-    }
+    content_types={}
     
     default_options = {
         "delimiter":            ",",
@@ -146,14 +147,15 @@ class SimpleConstant(XMLConfig):
         self.parent = parent
         self._content = ""
         self.type=name
+        self.children =[]
         if attrs is not None: self.parse_options(attrs)
 
     def startElement(self, name, attrs):
         if not name in self.content_types:
             raise ValueError("{0}: Invalid content".format(name))
-        self.child = globals()[self.content_types[name]](name, 
-            attrs, parent=self, parser=self.parser)
-        self.parser.setContentHandler(self.child)
+        self.children.append(self.content_types[name](name, 
+            attrs, parent=self, parser=self.parser))
+        self.parser.setContentHandler(self.children[-1])
         
     def endElement(self, name):
         self.parser.setContentHandler(self.parent)
@@ -169,7 +171,7 @@ class SimpleConstant(XMLConfig):
         
     @property
     def key(self):
-        return self.options['key']
+        return self.option('key')
 
     def parseValue(self):
         # noop for str
@@ -178,19 +180,22 @@ class SimpleConstant(XMLConfig):
     @property
     def content(self):
         if not hasattr(self,"_content_settled"):
+            if len(self.children) > 0:
+                # XXX: How to handle multiple children ?
+                return self.children[0].content
             #
             # Load basic content
-            if self.options["src"] is not None:
-                T=self.import_content(self.options["src"])
+            if self.option("src") is not None:
+                T=self.import_content(self.option("src"))
             else:
-                T=self.
+                T=self._content
             # 
             # Strip whitespace
-            if not self.options["preserve-whitespace"]:
+            if not self.option("preserve-whitespace"):
                 T=T.strip()
             #
             # Resolve references
-            if self.options["resolve-references"]:
+            if self.option("resolve-references"):
                 T = self.resolve_references(T)
             #
             # Cache result
@@ -201,7 +206,7 @@ class SimpleConstant(XMLConfig):
     @property
     def namespace(self):
         return self.parent.namespace
-            
+             
     def resolve_references(self, what):
         while True:
             m=self.reference_regex.search(what)
@@ -246,7 +251,7 @@ class BooleanConstant(SimpleConstant):
 class DictConstant(Constants):
     @property
     def key(self):
-        return self.options['key']
+        return self.option('key')
             
 @Constants.register_type("decimal")
 @Constants.register_type("float")
@@ -256,6 +261,7 @@ class DecimalConstant(SimpleConstant):
     
 @Constants.register_type("list")
 class ListConstant(SimpleConstant):
+    required_options=["delimiter","type"]
     type_funcs = {
         "str": str,
         "int": int,
@@ -265,17 +271,49 @@ class ListConstant(SimpleConstant):
     }
     def parseValue(self):
         T = list(self.content.split(
-            self.options["delimiter"]))
+            self.option("delimiter")))
         for i in xrange(len(T)):
             # Convert to declared type
-            T[i] = self.type_funcs[self.options['type']](T[i])
+            T[i] = self.type_funcs[self.option('type')](T[i])
         return T   
 
-class ChooseHandler(XMLConfig):
-    content_types = {
-        "default": "ChooseDefault",
-        "when":    "ChooseWhen"
+@SimpleConstant.register_type("choose")
+class ChooseHandler(SimpleConstant):
+    required_options=[]
+    default_options={}
+    
+    import socket
+    vars = {
+        "hostname": socket.gethostname()
     }
+    
+    @property
+    def content(self):
+        # Run when blocks
+        for x in self.children:
+            if isinstance(x, ChooseDefault):
+                self._default = x
+            elif isinstance(x, ChooseWhen):
+                # Eval the test element (safely)
+                try:
+                    if eval(self.resolve_references(x.option("test")), 
+                            {}, self.vars):
+                        self.selected = x
+                        break
+                except:
+                    continue
+        else:
+            # None of the when elements matched. Use the default
+            self.selected = self._default
+        return self.selected.content
+
+@ChooseHandler.register_type("default")
+class ChooseDefault(SimpleConstant):
+    required_options=[]
+    
+@ChooseHandler.register_type("when")
+class ChooseWhen(SimpleConstant):
+    required_options=["test"]
 
 def main():
 	parser = make_parser()
