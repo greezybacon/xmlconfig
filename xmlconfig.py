@@ -17,6 +17,7 @@ class XMLConfig(handler.ContentHandler, object):
     content_types = {}
     default_options = {}
     required_options = []
+    forbidden_options = []
     
     namespace_separator = ":"
 
@@ -37,6 +38,12 @@ class XMLConfig(handler.ContentHandler, object):
         for name in self.required_options:
             if name not in self._options:
                 raise ValueError("{0}: {1} required".format(self.type, name))
+                
+        # XXX: Forbidden options
+        for name in self.forbidden_options:
+            if name in self._options:
+                raise ValueError("{0}: '{1}' option is forbidden".format(
+                    self.type, name))
                 
     # XXX: Should be a verb
     def option(self, name):
