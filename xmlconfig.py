@@ -123,7 +123,7 @@ class Constants(XMLConfig, dict):
             return self.option('namespace')
         return self.parent.namespace
 
-@Constants.register_type("str")
+@Constants.register_type("string")
 class SimpleConstant(XMLConfig):
     
     content_types={}
