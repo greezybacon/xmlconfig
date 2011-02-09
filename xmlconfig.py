@@ -85,14 +85,14 @@ class XMLConfig(handler.ContentHandler, object):
         raise KeyError("{0}: Cannot lookup reference".format(key))
         
     @classmethod
-    def register_type(handler, name):
+    def register_child(handler, name):
         def register(clas):
             # XXX: clas should be a subclass of Constants
             handler.content_types[name] = clas
             return clas
         return register
 
-@XMLConfig.register_type("constants")
+@XMLConfig.register_child("constants")
 class Constants(XMLConfig, dict):
 
     content_types = {}
@@ -130,7 +130,7 @@ class Constants(XMLConfig, dict):
             return self.option('namespace')
         return self.parent.namespace
 
-@Constants.register_type("string")
+@Constants.register_child("string")
 class SimpleConstant(XMLConfig):
     
     content_types={}
@@ -237,36 +237,39 @@ class SimpleConstant(XMLConfig):
     def __unicode__(self):
         return unicode(self.value)
 
-@Constants.register_type("int")
-@Constants.register_type("long")
+@Constants.register_child("int")
+@Constants.register_child("long")
 class IntegerConstant(SimpleConstant):
     def parseValue(self):
         return int(self.content)
 
-@Constants.register_type("boolean")    
+@Constants.register_child("boolean")    
 class BooleanConstant(SimpleConstant):
     def parseValue(self):
         try:
+            # Handle numeric content
             return bool(int(self.content))
         except:
+            # Handle 'true'/'false' content
             if self.content.lower() in ["false"]:
                 return False
+            # Handle character content
             else:
                 return bool(self.content)
     
-@Constants.register_type("dict")
+@Constants.register_child("dict")
 class DictConstant(Constants):
     @property
     def key(self):
         return self.option('key')
             
-@Constants.register_type("decimal")
-@Constants.register_type("float")
+@Constants.register_child("decimal")
+@Constants.register_child("float")
 class DecimalConstant(SimpleConstant):
     def parseValue(self):
         return Decimal(self.content)
     
-@Constants.register_type("list")
+@Constants.register_child("list")
 class ListConstant(SimpleConstant):
     required_options=["delimiter","type"]
     type_funcs = {
@@ -284,7 +287,7 @@ class ListConstant(SimpleConstant):
             T[i] = self.type_funcs[self.option('type')](T[i])
         return T   
 
-@SimpleConstant.register_type("choose")
+@SimpleConstant.register_child("choose")
 class ChooseHandler(SimpleConstant):
     required_options=[]
     default_options={}
@@ -294,6 +297,8 @@ class ChooseHandler(SimpleConstant):
     vars = {
         "hostname": socket.gethostname()
     }
+    
+    # XXX Enforce required child 'default'
     
     @property
     def content(self):
@@ -315,12 +320,12 @@ class ChooseHandler(SimpleConstant):
             self.selected = self._default
         return self.selected.content
 
-@ChooseHandler.register_type("default")
+@ChooseHandler.register_child("default")
 class ChooseDefault(SimpleConstant):
     required_options=[]
     forbidden_options=["key"]
     
-@ChooseHandler.register_type("when")
+@ChooseHandler.register_child("when")
 class ChooseWhen(SimpleConstant):
     required_options=["test"]
     forbidden_options=["key"]
