@@ -288,6 +288,7 @@ class ListConstant(SimpleConstant):
 class ChooseHandler(SimpleConstant):
     required_options=[]
     default_options={}
+    forbidden_options=["key"]
     
     import socket
     vars = {
@@ -317,10 +318,12 @@ class ChooseHandler(SimpleConstant):
 @ChooseHandler.register_type("default")
 class ChooseDefault(SimpleConstant):
     required_options=[]
+    forbidden_options=["key"]
     
 @ChooseHandler.register_type("when")
 class ChooseWhen(SimpleConstant):
     required_options=["test"]
+    forbidden_options=["key"]
 
 def main():
 	parser = make_parser()
