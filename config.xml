@@ -52,6 +52,12 @@
 <constants namespace="other">
     
     <string key="foreign">foreign</string>
+
+    <string key="nest">nest2</string>
+    
+    <string key="nest2">nested</string>
+
+    <string key="nested">Value with a %(%(nest)) reference</string>
     
 </constants>
 </config>
