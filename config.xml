@@ -11,6 +11,14 @@
     <list key="key3" delimiter=":" type="int">
         1:2:3:4:5
     </list>
+    
+    <list key="email_list">
+        <![CDATA[
+        john.doe@email.server.tld <John Doe>,
+        jane.doe@email.server.tld <Jane Doe>,
+        billy.jim.bubba.joe.bob@server.tld <Billy Jim Bubba Joe Bob>
+        ]]>
+    </list>
 
     <dict key="key4">
         <string key="key5">

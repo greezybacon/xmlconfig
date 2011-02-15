@@ -22,6 +22,7 @@ from decimal import Decimal
 # x binary content
 # - ecrypted elements
 # - imports (circular reference auto-correct)
+# ? references to non-imported namespaces
 # - auto loading
 # - auto updating (when file is modified)
 # - event notification of updates
@@ -300,9 +301,11 @@ class ListConstant(SimpleConstant):
     def parseValue(self):
         T = list(self.content.split(
             self.option("delimiter")))
-        for i in xrange(len(T)):
+        for i, x in enumerate(T):
             # Convert to declared type
-            T[i] = self.type_funcs[self.option('type')](T[i])
+            if not self.option("preserve-whitespace"):
+                x=x.strip()
+            T[i] = self.type_funcs[self.option('type')](x)
         return T   
 
 @SimpleConstant.register_child("choose")
