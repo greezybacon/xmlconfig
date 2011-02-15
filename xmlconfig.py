@@ -13,6 +13,19 @@ import urllib2
 from xml.sax import saxutils, handler, make_parser
 from decimal import Decimal
 
+# TODO:
+# Support wish-list
+# x list/dict support
+# x choose block support
+# x namespaces
+# x references, nested references
+# x binary content
+# - ecrypted elements
+# - imports (circular reference auto-correct)
+# - auto loading
+# - auto updating (when file is modified)
+# - event notification of updates
+
 class XMLConfig(handler.ContentHandler, object):
     content_types = {}
     default_options = {}
@@ -51,8 +64,8 @@ class XMLConfig(handler.ContentHandler, object):
 
     def startElement(self, name, attrs):
         if not name in self.content_types:
-            # Ignore the <config> element, and ignore other, non <constant>
-            # elements
+            # Only enter into <constant> elements (or other registered
+            # supported content types)
             return
         self.constants.append(self.content_types[name](name, attrs,
             parent=self, parser=self.parser))
