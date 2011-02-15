@@ -151,6 +151,7 @@ class SimpleConstant(XMLConfig):
     
     default_options = {
         "delimiter":            ",",
+        "encoding":             None,
         "preserve-whitespace":  False,
         "type":                 "str",
         "ordered":              False,
@@ -215,6 +216,10 @@ class SimpleConstant(XMLConfig):
             if not self.option("preserve-whitespace"):
                 T=T.strip()
             #
+            # Decode
+            if self.option("encoding") is not None:
+                T=T.decode(self.option("encoding"))
+            #
             # Resolve references
             if self.option("resolve-references"):
                 T = self.resolve_references(T)
@@ -255,12 +260,8 @@ class IntegerConstant(SimpleConstant):
         
 @Constants.register_child("binary")
 class BinaryConstant(SimpleConstant):
-    default_options = SimpleConstant.default_options.copy()
-    default_options.update({
-        "encoding": "base64"
-    })
     def parseValue(self):
-        return buffer(self.content.decode(self.option("encoding")))
+        return buffer(self.content)
 
 @Constants.register_child("boolean")    
 class BooleanConstant(SimpleConstant):

@@ -1,11 +1,23 @@
 <?xml version="1.0"?>
 <config>
-<constants namespace="test1">
+<constants>
     <string key="key">value</string>
 
     <int key="key2">14</int>
 
-    <float key="key6">3.14159265354</float>
+    <float key="pi">3.1415926535897931</float>
+    
+    <float key="long_pi" encoding="base64">
+        My4xNDE1OTI2NTM1ODk3OTMyMzg0NjI2NDMzODMyNzk1MDI4ODQxOTcxNjkzOTkz
+        NzUxMDU4MjA5NzQ5NDQ1OTIzMDc4MTY0MDYyODYyMDg5OTg2MjgwMzQ4MjUzNDIx
+        MTcwNjc5ODIxNDgwODY1MTMyODIzMDY2NDcwOTM4NDQ2MDk1NTA1ODIyMzE3MjUz
+        NTk0MDgxMjg0ODExMTc0NTAyODQxMDI3MDE5Mzg1MjExMDU1NTk2NDQ2MjI5NDg5
+        NTQ5MzAzODE5NjQ0Mjg4MTA5NzU2NjU5MzM0NDYxMjg0NzU2NDgyMzM3ODY3ODMx
+        NjUyNzEyMDE5MDkxNDU2NDg1NjY5MjM0NjAzNDg2MTA0NTQzMjY2NDgyMTMzOTM2
+        MDcyNjAyNDkxNDEyNzM3MjQ1ODcwMDY2MDYzMTU1ODgxNzQ4ODE1MjA5MjA5NjI4
+        MjkyNTQwOTE3MTUzNjQzNjc4OTI1OTAzNjAwMTEzMzA1MzA1NDg4MjA0NjY1MjEz
+        ODQxNDY5NTE5NDE1MTE2MDkK
+    </float>
 
     <!-- This is a simple list -->
     <list key="key3" delimiter=":" type="int">
@@ -28,7 +40,7 @@
     
     <boolean key="key9">true</boolean>
     
-    <string key="ref">This is a back reference: %(key6)</string>
+    <string key="ref">This is a back reference: %(pi)</string>
 
     <string key="ref2">This is a forward %(key7)</string>
     
