@@ -241,7 +241,7 @@ class IntegerConstant(SimpleConstant):
         
 @Constants.register_child("binary")
 class BinaryConstant(SimpleConstant):
-    default_options = SimpleConstant.default_options
+    default_options = SimpleConstant.default_options.copy()
     default_options.update({
         "encoding": "base64"
     })
