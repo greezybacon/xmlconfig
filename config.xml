@@ -1,17 +1,11 @@
 <?xml version="1.0"?>
 <config>
 <constants namespace="test1">
-    <string key="key">
-        value
-    </string>
+    <string key="key">value</string>
 
-    <int key="key2">
-        14
-    </int>
+    <int key="key2">14</int>
 
-    <float key="key6">
-        3.14159265354
-    </float>
+    <float key="key6">3.14159265354</float>
 
     <!-- This is a simple list -->
     <list key="key3" delimiter=":" type="int">
@@ -47,17 +41,25 @@
     </string>
     
     <string key="import" src="file:file.txt"/>
+    
+    <binary key="base64" encoding="base64">
+        VGhpcyB3YXMgYmFzZTY0IGVuY29kZWQK
+    </binary>
+    
+    <binary key="hexencoded" encoding="hex">
+        54686973207761732068657861646563696d616c20656e636f646564
+    </binary>
 </constants> 
 
 <constants namespace="other">
     
     <string key="foreign">foreign</string>
 
-    <string key="nest">nest2</string>
+    <string key="nest">nest</string>
     
-    <string key="nest2">nested</string>
+    <string key="nest_ref">nested</string>
 
-    <string key="nested">Value with a %(%(nest)) reference</string>
+    <string key="nested">Value with a %(%(nest)_ref) reference</string>
     
 </constants>
 </config>

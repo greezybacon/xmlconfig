@@ -186,7 +186,7 @@ class SimpleConstant(XMLConfig):
         
     @property
     def content(self):
-        if not hasattr(self,"_content_settled"):
+        if not hasattr(self,"_content_settled") or not self._content_settled:
             if len(self.children) > 0:
                 # XXX: How to handle multiple children ?
                 return self.children[0].content
@@ -209,17 +209,13 @@ class SimpleConstant(XMLConfig):
             self._content=T
             self._content_settled=True
         return self._content
-        
-    @property
-    def namespace(self):
-        return self.parent.namespace
              
     def resolve_references(self, what):
         while True:
             m=self.reference_regex.search(what)
             if m is None: break
             what = what[0:m.start()] + unicode(self.root.lookup(m.group(1),
-                   self.namespace)) + what[m.end():]
+                   self.parent.namespace)) + what[m.end():]
         return what
         
     def import_content(self, url):
@@ -242,6 +238,15 @@ class SimpleConstant(XMLConfig):
 class IntegerConstant(SimpleConstant):
     def parseValue(self):
         return int(self.content)
+        
+@Constants.register_child("binary")
+class BinaryConstant(SimpleConstant):
+    default_options = SimpleConstant.default_options
+    default_options.update({
+        "encoding": "base64"
+    })
+    def parseValue(self):
+        return buffer(self.content.decode(self.option("encoding")))
 
 @Constants.register_child("boolean")    
 class BooleanConstant(SimpleConstant):
@@ -261,7 +266,7 @@ class BooleanConstant(SimpleConstant):
 class DictConstant(Constants):
     @property
     def key(self):
-        return self.option('key')
+        return self.option("key")
             
 @Constants.register_child("decimal")
 @Constants.register_child("float")
