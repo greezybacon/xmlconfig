@@ -27,7 +27,33 @@ from decimal import Decimal
 # - auto updating (when file is modified)
 # - event notification of updates
 
-class XMLConfig(handler.ContentHandler, object):
+class XMLConfig(object):
+    
+    def __init__(self):
+        self._config_parser = XMLConfigParser()
+    
+    def load(self, url):
+        parser = make_parser()
+        self._config_parser.push_parser(parser)
+        parser.setContentHandler(self._config_parser)
+        parser.parse(urllib2.urlopen(url))
+        self._config_parser.pop_parser()
+        
+    def __getitem__(self, name):
+        return self._config_parser.lookup(name)
+        
+    def __iter__(self):
+        for x in self._config_parser.constants:
+            for y in x:
+                yield x[y]
+    
+__configs={}
+def getConfig(name=""):
+    if name not in __configs:
+        __configs[name] = XMLConfig()
+    return __configs[name]
+
+class XMLConfigParser(handler.ContentHandler, object):
     content_types = {}
     default_options = {}
     required_options = []
@@ -37,11 +63,22 @@ class XMLConfig(handler.ContentHandler, object):
 
     def __init__(self, name=None, attrs=None, parser=None, parent=None):
         self.constants = []
-        self.parser = parser
         self.parent = parent
-        self.content = ""
+        self.parsers = []
+        self._content = ""
         self.type = name
         if attrs is not None: self.parse_options(attrs)
+        if parser is not None: self.push_parser(parser)
+        
+    def push_parser(self, parser):
+        self.parsers.append(parser)
+        
+    def pop_parser(self):
+        return self.parsers.pop()
+        
+    @property
+    def parser(self):
+        return self.parsers[-1]
 
     def parse_options(self, attrs):
         self._options = self.default_options.copy()
@@ -72,11 +109,9 @@ class XMLConfig(handler.ContentHandler, object):
             parent=self, parser=self.parser))
         self.parser.setContentHandler(self.constants[-1])
         
-    def endDocument(self):
-        for x in self.constants:
-            print "Dumping namespace " + x.namespace
-            for y in x:
-                print "{0}: {1}".format(y, str(x[y]))
+    @property
+    def namespaces(self):
+        return [x.namespace for x in self.constants]
         
     @property
     def root(self):
@@ -106,14 +141,21 @@ class XMLConfig(handler.ContentHandler, object):
             return clas
         return register
 
-@XMLConfig.register_child("constants")
-class Constants(XMLConfig, dict):
+@XMLConfigParser.register_child("constants")
+class Constants(XMLConfigParser, dict):
 
     content_types = {}
     default_options = {
-        "namespace":    "__root"
+        "namespace":    "__root",
+        "src":          None
     }
     namespace_separator = "."
+    
+    def __init__(self, name=None, attrs=None, parser=None, parent=None):
+        super(Constants, self).__init__(name, attrs, parser, parent)
+        if self.option("src") is not None:
+            # Load in constants
+            getConfig().load(self.option("src"))
 
     def startElement(self, name, attrs):
         # Manages the handler for this element's content
@@ -145,7 +187,7 @@ class Constants(XMLConfig, dict):
         return self.parent.namespace
 
 @Constants.register_child("string")
-class SimpleConstant(XMLConfig):
+class SimpleConstant(XMLConfigParser):
     
     content_types={}
     
@@ -165,12 +207,8 @@ class SimpleConstant(XMLConfig):
     reference_regex = re.compile(r'%\(([^%)]+)\)')
 
     def __init__(self, name=None, attrs=None, parser=None, parent=None):
-        self.parser = parser
-        self.parent = parent
-        self._content = ""
-        self.type=name
+        super(SimpleConstant, self).__init__(name, attrs, parser, parent)
         self.children =[]
-        if attrs is not None: self.parse_options(attrs)
 
     def startElement(self, name, attrs):
         if not name in self.content_types:
@@ -352,10 +390,8 @@ class ChooseWhen(SimpleConstant):
     required_options=["test"]
     forbidden_options=["key"]
 
-def main():
-	parser = make_parser()
-	parser.setContentHandler(XMLConfig(parser=parser))
-	parser.parse("config.xml")
-
 if __name__ == '__main__':
-	main()
+	c=getConfig()
+	c.load("file:config.xml")
+	for n in c:
+	    print n

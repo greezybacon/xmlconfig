@@ -1,86 +1,87 @@
 <?xml version="1.0"?>
 <config>
-<constants>
-    <string key="key">value</string>
+    <constants src="file:config2.xml"/>
+    <constants>
+        <string key="key">value</string>
 
-    <int key="key2">14</int>
+        <int key="key2">14</int>
 
-    <float key="pi">3.1415926535897931</float>
+        <float key="pi">3.1415926535897931</float>
     
-    <float key="long_pi" encoding="base64">
-        My4xNDE1OTI2NTM1ODk3OTMyMzg0NjI2NDMzODMyNzk1MDI4ODQxOTcxNjkzOTkz
-        NzUxMDU4MjA5NzQ5NDQ1OTIzMDc4MTY0MDYyODYyMDg5OTg2MjgwMzQ4MjUzNDIx
-        MTcwNjc5ODIxNDgwODY1MTMyODIzMDY2NDcwOTM4NDQ2MDk1NTA1ODIyMzE3MjUz
-        NTk0MDgxMjg0ODExMTc0NTAyODQxMDI3MDE5Mzg1MjExMDU1NTk2NDQ2MjI5NDg5
-        NTQ5MzAzODE5NjQ0Mjg4MTA5NzU2NjU5MzM0NDYxMjg0NzU2NDgyMzM3ODY3ODMx
-        NjUyNzEyMDE5MDkxNDU2NDg1NjY5MjM0NjAzNDg2MTA0NTQzMjY2NDgyMTMzOTM2
-        MDcyNjAyNDkxNDEyNzM3MjQ1ODcwMDY2MDYzMTU1ODgxNzQ4ODE1MjA5MjA5NjI4
-        MjkyNTQwOTE3MTUzNjQzNjc4OTI1OTAzNjAwMTEzMzA1MzA1NDg4MjA0NjY1MjEz
-        ODQxNDY5NTE5NDE1MTE2MDkK
-    </float>
+        <float key="long_pi" encoding="base64">
+            My4xNDE1OTI2NTM1ODk3OTMyMzg0NjI2NDMzODMyNzk1MDI4ODQxOTcxNjkzOTkz
+            NzUxMDU4MjA5NzQ5NDQ1OTIzMDc4MTY0MDYyODYyMDg5OTg2MjgwMzQ4MjUzNDIx
+            MTcwNjc5ODIxNDgwODY1MTMyODIzMDY2NDcwOTM4NDQ2MDk1NTA1ODIyMzE3MjUz
+            NTk0MDgxMjg0ODExMTc0NTAyODQxMDI3MDE5Mzg1MjExMDU1NTk2NDQ2MjI5NDg5
+            NTQ5MzAzODE5NjQ0Mjg4MTA5NzU2NjU5MzM0NDYxMjg0NzU2NDgyMzM3ODY3ODMx
+            NjUyNzEyMDE5MDkxNDU2NDg1NjY5MjM0NjAzNDg2MTA0NTQzMjY2NDgyMTMzOTM2
+            MDcyNjAyNDkxNDEyNzM3MjQ1ODcwMDY2MDYzMTU1ODgxNzQ4ODE1MjA5MjA5NjI4
+            MjkyNTQwOTE3MTUzNjQzNjc4OTI1OTAzNjAwMTEzMzA1MzA1NDg4MjA0NjY1MjEz
+            ODQxNDY5NTE5NDE1MTE2MDkK
+        </float>
 
-    <!-- This is a simple list -->
-    <list key="key3" delimiter=":" type="int">
-        1:2:3:4:5
-    </list>
+        <!-- This is a simple list -->
+        <list key="key3" delimiter=":" type="int">
+            1:2:3:4:5
+        </list>
     
-    <list key="email_list">
-        <![CDATA[
-        john.doe@email.server.tld <John Doe>,
-        jane.doe@email.server.tld <Jane Doe>,
-        billy.jim.bubba.joe.bob@server.tld <Billy Jim Bubba Joe Bob>
-        ]]>
-    </list>
+        <list key="email_list">
+            <![CDATA[
+            john.doe@email.server.tld <John Doe>,
+            jane.doe@email.server.tld <Jane Doe>,
+            billy.jim.bubba.joe.bob@server.tld <Billy Jim Bubba Joe Bob>
+            ]]>
+        </list>
 
-    <dict key="key4">
-        <string key="key5">
-            value2
+        <dict key="key4">
+            <string key="key5">
+                value2
+            </string>
+        </dict>
+    
+        <boolean key="key9">true</boolean>
+    
+        <string key="ref">This is a back reference: %(pi)</string>
+
+        <string key="ref2">This is a forward %(key7)</string>
+    
+        <!-- This is a comment -->
+        <string key="key7">reference</string>
+    
+        <string key="key8">This is a reference to a %(other:foreign) namespace</string>
+
+        <string key="chosen">
+            <choose>
+                <default>
+                    default
+                </default>
+                <when test="hostname=='Jared-Hancocks-MacBook-Pro.local'">
+                    mypc
+                </when>
+            </choose>
         </string>
-    </dict>
     
-    <boolean key="key9">true</boolean>
+        <string key="import" src="file:file.txt"/>
     
-    <string key="ref">This is a back reference: %(pi)</string>
+        <binary key="base64" encoding="base64">
+            VGhpcyB3YXMgYmFzZTY0IGVuY29kZWQK
+        </binary>
+    
+        <binary key="hexencoded" encoding="hex">
+            54686973207761732068657861646563696d616c20656e636f646564
+        </binary>
+    </constants> 
 
-    <string key="ref2">This is a forward %(key7)</string>
+    <constants namespace="other">
     
-    <!-- This is a comment -->
-    <string key="key7">reference</string>
-    
-    <string key="key8">This is a reference to a %(other:foreign) namespace</string>
+        <string key="foreign">foreign</string>
 
-    <string key="chosen">
-        <choose>
-            <default>
-                default
-            </default>
-            <when test="hostname=='Jared-Hancocks-MacBook-Pro.local'">
-                mypc
-            </when>
-        </choose>
-    </string>
+        <string key="nest">nest</string>
     
-    <string key="import" src="file:file.txt"/>
-    
-    <binary key="base64" encoding="base64">
-        VGhpcyB3YXMgYmFzZTY0IGVuY29kZWQK
-    </binary>
-    
-    <binary key="hexencoded" encoding="hex">
-        54686973207761732068657861646563696d616c20656e636f646564
-    </binary>
-</constants> 
+        <string key="nest_ref">nested</string>
 
-<constants namespace="other">
+        <string key="nested">Value with a %(%(nest)_ref) reference</string>
     
-    <string key="foreign">foreign</string>
-
-    <string key="nest">nest</string>
-    
-    <string key="nest_ref">nested</string>
-
-    <string key="nested">Value with a %(%(nest)_ref) reference</string>
-    
-</constants>
+    </constants>
 </config>
     
