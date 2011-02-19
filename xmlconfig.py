@@ -21,23 +21,43 @@ from decimal import Decimal
 # x references, nested references
 # x binary content
 # - ecrypted elements
-# - imports (circular reference auto-correct)
+# x imports (circular reference auto-correct)
+# x import changing local namespace or foreign document
 # ? references to non-imported namespaces
 # - auto loading
 # - auto updating (when file is modified)
 # - event notification of updates
 
+LOCAL_NAMESPACE="__local"
+
 class XMLConfig(object):
     
     def __init__(self):
         self._config_parser = XMLConfigParser()
+        self._files = {}
+        self._links = {}
     
-    def load(self, url):
-        parser = make_parser()
-        self._config_parser.push_parser(parser)
-        parser.setContentHandler(self._config_parser)
-        parser.parse(urllib2.urlopen(url))
-        self._config_parser.pop_parser()
+    def load(self, url, namespace=LOCAL_NAMESPACE):
+        # Keep track of loaded files to ward off circular dependencies
+        try:
+            content = urllib2.urlopen(url)
+        except ValueError:
+            url = "file:" + url
+            content = urllib2.urlopen(url)
+        if url in self._files:
+            self._links[self._files[url]] = namespace
+        else:
+            self._files[url] = namespace
+            parser = make_parser()
+            self._config_parser.push_parser(parser, namespace)
+            parser.setContentHandler(self._config_parser)
+            parser.parse(content)
+            
+        for dst, src in self._links.iteritems():
+            try:
+                self._config_parser.link_namespace(src, dst)
+            except:
+                pass
         
     def __getitem__(self, name):
         return self._config_parser.lookup(name)
@@ -61,24 +81,31 @@ class XMLConfigParser(handler.ContentHandler, object):
     
     namespace_separator = ":"
 
-    def __init__(self, name=None, attrs=None, parser=None, parent=None):
+    def __init__(self, name=None, attrs=None, parser=None, parent=None, 
+            namespace=None):
         self.constants = []
         self.parent = parent
         self.parsers = []
         self._content = ""
         self.type = name
         if attrs is not None: self.parse_options(attrs)
-        if parser is not None: self.push_parser(parser)
+        if parser is not None: self.push_parser(parser, namespace)
+        if namespace is not None and "namespace" not in self._options:
+            self._options["namespace"] = namespace
         
-    def push_parser(self, parser):
-        self.parsers.append(parser)
+    def push_parser(self, parser, namespace=None):
+        self.parsers.append((parser,namespace))
         
     def pop_parser(self):
-        return self.parsers.pop()
+        self.parsers.pop()
         
     @property
     def parser(self):
-        return self.parsers[-1]
+        return self.parsers[-1][0]
+        
+    @property
+    def parser_namespace(self):
+        return self.parsers[-1][1]
 
     def parse_options(self, attrs):
         self._options = self.default_options.copy()
@@ -105,9 +132,12 @@ class XMLConfigParser(handler.ContentHandler, object):
             # Only enter into <constant> elements (or other registered
             # supported content types)
             return
-        self.constants.append(self.content_types[name](name, attrs,
-            parent=self, parser=self.parser))
+        self.constants.append(self.content_types[name](name=name, attrs=attrs,
+            parent=self, parser=self.parser, namespace=self.parser_namespace))
         self.parser.setContentHandler(self.constants[-1])
+        
+    def endElement(self, name):
+        self.pop_parser()
         
     @property
     def namespaces(self):
@@ -126,13 +156,13 @@ class XMLConfigParser(handler.ContentHandler, object):
             if len(split) == 2 and len(split[1]):
                 if x.namespace == split[0]:
                     return x.lookup(split[1])
-            elif x.namespace in ("__root", namespace): 
+            elif x.namespace in (LOCAL_NAMESPACE, namespace): 
                 try:
                     return x.lookup(split[0])
                 except:
                     pass
         raise KeyError("{0}: Cannot lookup reference".format(key))
-        
+                
     @classmethod
     def register_child(handler, name):
         def register(clas):
@@ -140,28 +170,45 @@ class XMLConfigParser(handler.ContentHandler, object):
             handler.content_types[name] = clas
             return clas
         return register
+        
+    # The parser doesn't have a namespace. If an element looks to this
+    # as the parent looking for a namespace, then one must not have been
+    # defined for the child, so return the default namespace
+    namespace = LOCAL_NAMESPACE
+        
+    def link_namespace(self, namespace, newname):
+        for x in self.constants:
+            if x.namespace == namespace:
+                x.link_to(newname)
+                
+    @property
+    def namespace(self):
+        if 'namespace' in self._options:
+            return self.option('namespace')
+        else:
+            return self.parent.namespace
 
 @XMLConfigParser.register_child("constants")
 class Constants(XMLConfigParser, dict):
 
     content_types = {}
     default_options = {
-        "namespace":    "__root",
         "src":          None
     }
     namespace_separator = "."
     
-    def __init__(self, name=None, attrs=None, parser=None, parent=None):
-        super(Constants, self).__init__(name, attrs, parser, parent)
+    def __init__(self, **kwargs):
+        super(Constants, self).__init__(**kwargs)
         if self.option("src") is not None:
             # Load in constants
-            getConfig().load(self.option("src"))
+            getConfig().load(self.option("src"), self.namespace)
 
     def startElement(self, name, attrs):
         # Manages the handler for this element's content
         # if there is a child, then the element belongs to it
-        self.constants.append(self.content_types[name](name, 
-            attrs, parent=self, parser=self.parser))
+        self.constants.append(self.content_types[name](name=name, 
+            attrs=attrs, parent=self, parser=self.parser,
+            namespace=self.parser_namespace))
         self.parser.setContentHandler(self.constants[-1])
         
     def endElement(self, name):
@@ -172,19 +219,17 @@ class Constants(XMLConfigParser, dict):
         self.parser.setContentHandler(self.parent)
         
     def lookup(self, key):
-        # XXX self.constants should be a hashtable
+        if hasattr(self, '_link'):
+            return self.parent.lookup("{0}:{1}".format(self._link, key))
         splitkey = key.split(self.namespace_separator, 1)
         if splitkey[0] in self:
             if len(splitkey) == 2:
                 return self[splitkey[0]].lookup(splitkey[1])
             return self[splitkey[0]]
-        raise KeyError("{0}: Cannot find constant".format(key))
-
-    @property
-    def namespace(self):
-        if 'namespace' in self._options:
-            return self.option('namespace')
-        return self.parent.namespace
+        raise KeyError("{0}: Cannot find constant, {1}".format(key,[x for x in self]))
+            
+    def link_to(self, namespace):
+        self._link = namespace
 
 @Constants.register_child("string")
 class SimpleConstant(XMLConfigParser):
@@ -206,15 +251,15 @@ class SimpleConstant(XMLConfigParser):
     
     reference_regex = re.compile(r'%\(([^%)]+)\)')
 
-    def __init__(self, name=None, attrs=None, parser=None, parent=None):
-        super(SimpleConstant, self).__init__(name, attrs, parser, parent)
+    def __init__(self, **kwargs):
+        super(SimpleConstant, self).__init__(**kwargs)
         self.children =[]
 
     def startElement(self, name, attrs):
         if not name in self.content_types:
             raise ValueError("{0}: Invalid content".format(name))
-        self.children.append(self.content_types[name](name, 
-            attrs, parent=self, parser=self.parser))
+        self.children.append(self.content_types[name](name=name, 
+            attrs=attrs, parent=self, parser=self.parser))
         self.parser.setContentHandler(self.children[-1])
         
     def endElement(self, name):
@@ -394,4 +439,4 @@ if __name__ == '__main__':
 	c=getConfig()
 	c.load("file:config.xml")
 	for n in c:
-	    print n
+	    print n.namespace, ":", n.key, ":", n

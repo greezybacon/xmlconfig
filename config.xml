@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <config>
-    <constants src="file:config2.xml"/>
+    <constants namespace="import" src="file:config2.xml"/>
     <constants>
         <string key="key">value</string>
 
@@ -34,9 +34,8 @@
         </list>
 
         <dict key="key4">
-            <string key="key5">
-                value2
-            </string>
+            <string key="key5">value2</string>
+            <string key="import">%(import:key22)</string>
         </dict>
     
         <boolean key="key9">true</boolean>
