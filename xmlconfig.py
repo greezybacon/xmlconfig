@@ -20,7 +20,9 @@ from decimal import Decimal
 # x namespaces
 # x references, nested references
 # x binary content
-# - ecrypted elements
+# x ecrypted elements
+# - commandline script to create encrypted elements
+# - support password (key) for encrypted stuff
 # x imports (circular reference auto-correct)
 # x import changing local namespace or foreign document
 # ? references to non-imported namespaces
@@ -56,7 +58,9 @@ class XMLConfig(object):
         for dst, src in self._links.iteritems():
             try:
                 self._config_parser.link_namespace(src, dst)
+                # XXX Only do this once
             except:
+                # The target namespace hasn't been parsed yet
                 pass
         
     def __getitem__(self, name):
@@ -270,6 +274,8 @@ class SimpleConstant(XMLConfigParser):
 
     @property
     def value(self):
+        # XXX For some more security, it might be nice to provide an
+        #     option to not store the value in memory
         if not hasattr(self, '_value'):
             self._value = self.parseValue()
         return self._value
@@ -390,7 +396,24 @@ class ListConstant(SimpleConstant):
             if not self.option("preserve-whitespace"):
                 x=x.strip()
             T[i] = self.type_funcs[self.option('type')](x)
-        return T   
+        return T 
+   
+from blowfish import Blowfish 
+import hashlib, hmac
+@Constants.register_child("cryptic")
+class EncryptedConstant(SimpleConstant):
+    default_options = SimpleConstant.default_options.copy()
+    default_options.update({
+        'salt':         'KGS!@#$%'
+    })
+    def parseValue(self):
+        # Key is an SHA1 hmac hash of the key attribute of the loaded 
+        # document, the salt of this element, and the namespace
+        # XXX Implement password of this config document
+        key = hmac.new(buffer(self.key), self.option('salt') + self.namespace,
+            hashlib.sha1).digest()
+        b = Blowfish(key)
+        return b.decrypt(self.content)
 
 @SimpleConstant.register_child("choose")
 class ChooseHandler(SimpleConstant):

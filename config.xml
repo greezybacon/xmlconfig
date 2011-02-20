@@ -69,6 +69,10 @@
         <binary key="hexencoded" encoding="hex">
             54686973207761732068657861646563696d616c20656e636f646564
         </binary>
+        
+        <cryptic key="encrypted" salt="h+FaddJXULs8" encoding="base64">
+            SkBTEAITWOu5DoKXX4EdPwb85W3h3Q+V
+        </cryptic>
     </constants> 
 
     <constants namespace="other">
