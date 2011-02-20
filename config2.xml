@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<config>
+    <constants namespace="circular" src="config.xml"/>
+    <constants>
+        <string key="key22">This was imported from config2.xml</string>
+        <string key="foreign">Namespace changed in %(circular:key4.import)</string>
+    </constants>
+</config>
