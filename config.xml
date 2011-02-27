@@ -59,6 +59,15 @@
                 </when>
             </choose>
         </string>
+        
+        <string key="chosen-forward">
+            <choose>
+                <default>!! unsupported</default>
+                <when test="'%(other:nest)'=='nest'">
+                    it works!
+                </when>
+            </choose>
+        </string>
     
         <string key="import" src="file:file.txt"/>
     
@@ -73,6 +82,18 @@
         <cryptic key="encrypted" salt="h+FaddJXULs8" encoding="base64">
             SkBTEAITWOu5DoKXX4EdPwb85W3h3Q+V
         </cryptic>
+        
+        <cryptic key="encrypted-with-ref" salt="t3J6jETFKlsN" encoding="base64">
+            eEGnzLP0iHXzG0WYs+TqRAr78l6F8Q0dKR5GV9ToHJsPh9EVyay7qA==
+        </cryptic>
+        
+        <cryptic key="password" salt="pYzSxGhzoc4H" encoding="base64">
+            lR3DJXou5Qs=
+        </cryptic>
+        
+        <string key="dsn">
+            DSN=ODBC;UID=schema;PWD=%(password)
+        </string>
     </constants> 
 
     <constants namespace="other">

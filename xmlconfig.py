@@ -21,7 +21,7 @@ from decimal import Decimal
 # x references, nested references
 # x binary content
 # x ecrypted elements
-# - commandline script to create encrypted elements
+# - locking/unlocking documents with <cryptic> elements
 # - support password (key) for encrypted stuff
 # x imports (circular reference auto-correct)
 # x import changing local namespace or foreign document
@@ -29,15 +29,24 @@ from decimal import Decimal
 # - auto loading
 # - auto updating (when file is modified)
 # - event notification of updates
+# - retrieve elements from config file with fall-back default value
 
 LOCAL_NAMESPACE="__local"
 
 class XMLConfig(object):
     
-    def __init__(self):
+    def __init__(self, name):
         self._config_parser = XMLConfigParser()
         self._files = {}
         self._links = {}
+        self.name = name
+        
+    def autoload(self, base_url="file:."):
+        # Look for a file with [self.name]*.xml in current folder, then 
+        # current folder and up to three parent folders inside a folder
+        # named config
+        # XXX wildcards will only work for local filesystem (not http:)
+        pass
     
     def load(self, url, namespace=LOCAL_NAMESPACE):
         # Keep track of loaded files to ward off circular dependencies
@@ -66,6 +75,12 @@ class XMLConfig(object):
     def __getitem__(self, name):
         return self._config_parser.lookup(name)
         
+    def get(self, name, default=None):
+        try:
+            return self[name]
+        except KeyError:
+            return default
+            
     def __iter__(self):
         for x in self._config_parser.constants:
             for y in x:
@@ -74,7 +89,7 @@ class XMLConfig(object):
 __configs={}
 def getConfig(name=""):
     if name not in __configs:
-        __configs[name] = XMLConfig()
+        __configs[name] = XMLConfig(name)
     return __configs[name]
 
 class XMLConfigParser(handler.ContentHandler, object):
@@ -278,6 +293,7 @@ class SimpleConstant(XMLConfigParser):
         #     option to not store the value in memory
         if not hasattr(self, '_value'):
             self._value = self.parseValue()
+
         return self._value
         
     @property
@@ -307,7 +323,7 @@ class SimpleConstant(XMLConfigParser):
             #
             # Decode
             if self.option("encoding") is not None:
-                T=T.decode(self.option("encoding"))
+                T=self.decode(T, self.option("encoding"))
             #
             # Resolve references
             if self.option("resolve-references"):
@@ -317,6 +333,11 @@ class SimpleConstant(XMLConfigParser):
             self._content=T
             self._content_settled=True
         return self._content
+        
+    def decode(self, what, how):
+        "Allow for custom decoding (decryption)"
+        # Simple for most types
+        return what.decode(how)
              
     def resolve_references(self, what):
         while True:
@@ -406,14 +427,13 @@ class EncryptedConstant(SimpleConstant):
     default_options.update({
         'salt':         'KGS!@#$%'
     })
-    def parseValue(self):
+    def decode(self, what, how):
         # Key is an SHA1 hmac hash of the key attribute of the loaded 
         # document, the salt of this element, and the namespace
         # XXX Implement password of this config document
         key = hmac.new(buffer(self.key), self.option('salt') + self.namespace,
             hashlib.sha1).digest()
-        b = Blowfish(key)
-        return b.decrypt(self.content)
+        return Blowfish(key).decrypt(what.decode(how))
 
 @SimpleConstant.register_child("choose")
 class ChooseHandler(SimpleConstant):

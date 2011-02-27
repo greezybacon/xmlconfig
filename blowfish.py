@@ -508,10 +508,10 @@ if __name__ == '__main__':
     from blowfish import Blowfish 
     import hashlib, hmac
     
-    key = hmac.new(buffer(u"encrypted"), "h+FaddJXULs8" + "__local", hashlib.sha1).digest()
+    key = hmac.new(buffer(u"encrypted-with-ref"), "t3J6jETFKlsN" + "__local", hashlib.sha1).digest()
     cipher = Blowfish(key)
     print """
-    <cryptic key="encrypted" salt="h+FaddJXULs8" encoding="base64">
-        {0}    </cryptic>""".format(cipher.encrypt("This is sooper secret").encode('base64'))
+    <cryptic key="encrypted" salt="t3J6jETFKlsN" encoding="base64">
+        {0}    </cryptic>""".format(cipher.encrypt("Encrypted reference to %(password)").encode('base64'))
     
     print "Timing:", time.time() - start, "s"
