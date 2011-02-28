@@ -94,6 +94,15 @@
         <string key="dsn">
             DSN=ODBC;UID=schema;PWD=%(password)
         </string>
+        
+        <!-- Test for a nested dictionary -->
+        <dict key="dict_in_dict">
+            <dict key="internal_dict">
+                <string key="inside">Inside a dict inside a dict</string>
+            </dict>
+        </dict>
+        
+        <string key="nested_dict_ref">%(dict_in_dict.internal_dict.inside)</string>
     </constants> 
 
     <constants namespace="other">
