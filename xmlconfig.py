@@ -28,7 +28,9 @@ from decimal import Decimal
 # x imports (circular reference auto-correct)
 # x import changing local namespace or foreign document
 # ? references to non-imported namespaces
-# - auto loading
+# x auto loading
+# - auto loading -- search in subfolders inside folder name 'config'
+#           and make 'config' folder name configurable
 # - auto updating (when file is modified)
 # - event notification of updates
 # - retrieve elements from config file with fall-back default value
@@ -176,7 +178,7 @@ class XMLConfig(XMLConfigParser):
         # named config
         # XXX wildcards will only work for local filesystem (not http:)
         try:
-            self.load(base_url + self.name + ".xml", namespace=self.name)
+            self.load(base_url + self.name + ".xml")
         except:
             raise
 
@@ -504,6 +506,6 @@ class ChooseWhen(SimpleConstant):
 
 if __name__ == '__main__':
 	c=getConfig("config")
-	c.load("file:config.xml")
+	c.autoload()
 	for n in c:
 	    print n.namespace, ":", n.key, ":", n
