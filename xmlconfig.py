@@ -162,6 +162,9 @@ class XMLConfigParser(handler.ContentHandler, object):
             return self.parent.namespace
 
 class XMLConfig(XMLConfigParser):
+    default_options = {
+        'autoload-folder-name':     'config'
+    }
 
     def __init__(self, name):
         self._files = {}
@@ -272,6 +275,19 @@ class Constants(XMLConfigParser, dict):
         raise KeyError("{0}: Cannot find constant, {1}".format(key,[x for x in self]))
             
     def link_to(self, namespace):
+        """
+        Used to avert circular dependencies. If a file is loaded that sources
+        a second file which sources the first file, a link will be placed to
+        link the declared namespace in the second file for the import of the
+        first file. Since the first file has already been loaded, it should
+        not be loaded a second time. If the namespace was declared different
+        from the namespace declared natively in the first file, a link 
+        between the two namespaces will suffice.
+        
+        This is confusing to describe, but it isn't a problem that will be
+        rarely triggered. 
+        XXX Insert an example
+        """
         self._link = namespace
 
 @Constants.register_child("string")
