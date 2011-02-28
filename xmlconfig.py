@@ -15,13 +15,15 @@ from decimal import Decimal
 
 # TODO:
 # Support wish-list
+# - Using a name for a config doc (ie. getConfig(name))
 # x list/dict support
 # x choose block support
 # x namespaces
 # x references, nested references
 # x binary content
-# x ecrypted elements
+# x ecrypted content
 # - locking/unlocking documents with <cryptic> elements
+# - schema & validation script
 # - support password (key) for encrypted stuff
 # x imports (circular reference auto-correct)
 # x import changing local namespace or foreign document
@@ -30,6 +32,9 @@ from decimal import Decimal
 # - auto updating (when file is modified)
 # - event notification of updates
 # - retrieve elements from config file with fall-back default value
+# - installer (distutils)
+# - installer creates unique host-key for en-/decryption
+# - write support (perhaps to be used with (un)locking)
 
 LOCAL_NAMESPACE="__local"
 
@@ -41,11 +46,22 @@ class XMLConfig(object):
         self._links = {}
         self.name = name
         
-    def autoload(self, base_url="file:."):
+    def autoload(self, base_url="file:"):
         # Look for a file with [self.name]*.xml in current folder, then 
         # current folder and up to three parent folders inside a folder
         # named config
         # XXX wildcards will only work for local filesystem (not http:)
+        try:
+            self.load(base_url + self.name + ".xml", namespace=self.name)
+        except:
+            raise
+        
+    @property
+    def is_loaded(self):
+        """
+        Returns True if the configuration document has been found, loaded,
+        and successfully processed
+        """
         pass
     
     def load(self, url, namespace=LOCAL_NAMESPACE):
@@ -56,6 +72,8 @@ class XMLConfig(object):
             url = "file:" + url
             content = urllib2.urlopen(url)
         if url in self._files:
+            # Already loaded this file, so just create a link to another
+            # namespace
             self._links[self._files[url]] = namespace
         else:
             self._files[url] = namespace
@@ -63,6 +81,7 @@ class XMLConfig(object):
             self._config_parser.push_parser(parser, namespace)
             parser.setContentHandler(self._config_parser)
             parser.parse(content)
+        content.close()
             
         for dst, src in self._links.iteritems():
             try:
@@ -322,6 +341,8 @@ class SimpleConstant(XMLConfigParser):
                 T=T.strip()
             #
             # Decode
+            # XXX Allow for custom decoding to consider wheter or not data
+            # XXX should be encoded
             if self.option("encoding") is not None:
                 T=self.decode(T, self.option("encoding"))
             #
