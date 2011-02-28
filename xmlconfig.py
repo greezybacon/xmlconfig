@@ -15,7 +15,7 @@ from decimal import Decimal
 
 # TODO:
 # Support wish-list
-# - Using a name for a config doc (ie. getConfig(name))
+# x Using a name for a config doc (ie. getConfig(name))
 # x list/dict support
 # x choose block support
 # x namespaces
@@ -37,73 +37,6 @@ from decimal import Decimal
 # - write support (perhaps to be used with (un)locking)
 
 LOCAL_NAMESPACE="__local"
-
-class XMLConfig(object):
-    
-    def __init__(self, name):
-        self._config_parser = XMLConfigParser()
-        self._files = {}
-        self._links = {}
-        self.name = name
-        
-    def autoload(self, base_url="file:"):
-        # Look for a file with [self.name]*.xml in current folder, then 
-        # current folder and up to three parent folders inside a folder
-        # named config
-        # XXX wildcards will only work for local filesystem (not http:)
-        try:
-            self.load(base_url + self.name + ".xml", namespace=self.name)
-        except:
-            raise
-        
-    @property
-    def is_loaded(self):
-        """
-        Returns True if the configuration document has been found, loaded,
-        and successfully processed
-        """
-        pass
-    
-    def load(self, url, namespace=LOCAL_NAMESPACE):
-        # Keep track of loaded files to ward off circular dependencies
-        try:
-            content = urllib2.urlopen(url)
-        except ValueError:
-            url = "file:" + url
-            content = urllib2.urlopen(url)
-        if url in self._files:
-            # Already loaded this file, so just create a link to another
-            # namespace
-            self._links[self._files[url]] = namespace
-        else:
-            self._files[url] = namespace
-            parser = make_parser()
-            self._config_parser.push_parser(parser, namespace)
-            parser.setContentHandler(self._config_parser)
-            parser.parse(content)
-        content.close()
-            
-        for dst, src in self._links.iteritems():
-            try:
-                self._config_parser.link_namespace(src, dst)
-                # XXX Only do this once
-            except:
-                # The target namespace hasn't been parsed yet
-                pass
-        
-    def __getitem__(self, name):
-        return self._config_parser.lookup(name)
-        
-    def get(self, name, default=None):
-        try:
-            return self[name]
-        except KeyError:
-            return default
-            
-    def __iter__(self):
-        for x in self._config_parser.constants:
-            for y in x:
-                yield x[y]
     
 __configs={}
 def getConfig(name=""):
@@ -226,7 +159,77 @@ class XMLConfigParser(handler.ContentHandler, object):
         else:
             return self.parent.namespace
 
-@XMLConfigParser.register_child("constants")
+class XMLConfig(XMLConfigParser):
+
+    def __init__(self, name):
+        self._files = {}
+        self._links = {}
+        # Stuff from XMLConfigParser
+        self.parsers = []
+        self.constants = []
+        self.parent = None
+        self.name = name
+
+    def autoload(self, base_url="file:"):
+        # Look for a file with [self.name]*.xml in current folder, then 
+        # current folder and up to three parent folders inside a folder
+        # named config
+        # XXX wildcards will only work for local filesystem (not http:)
+        try:
+            self.load(base_url + self.name + ".xml", namespace=self.name)
+        except:
+            raise
+
+    @property
+    def is_loaded(self):
+        """
+        Returns True if the configuration document has been found, loaded,
+        and successfully processed
+        """
+        pass
+
+    def load(self, url, namespace=LOCAL_NAMESPACE):
+        # Keep track of loaded files to ward off circular dependencies
+        try:
+            content = urllib2.urlopen(url)
+        except ValueError:
+            url = "file:" + url
+            content = urllib2.urlopen(url)
+        if url in self._files:
+            # Already loaded this file, so just create a link to another
+            # namespace
+            self._links[self._files[url]] = namespace
+        else:
+            self._files[url] = namespace
+            parser = make_parser()
+            self.push_parser(parser, namespace)
+            parser.setContentHandler(self)
+            parser.parse(content)
+        content.close()
+
+        for dst, src in self._links.iteritems():
+            try:
+                self.link_namespace(src, dst)
+                # XXX Only do this once
+            except:
+                # The target namespace hasn't been parsed yet
+                pass
+
+    def __getitem__(self, name):
+        return self.lookup(name)
+
+    def get(self, name, default=None):
+        try:
+            return self[name]
+        except KeyError:
+            return default
+
+    def __iter__(self):
+        for x in self.constants:
+            for y in x:
+                yield x[y]
+
+@XMLConfig.register_child("constants")
 class Constants(XMLConfigParser, dict):
 
     content_types = {}
@@ -239,7 +242,7 @@ class Constants(XMLConfigParser, dict):
         super(Constants, self).__init__(**kwargs)
         if self.option("src") is not None:
             # Load in constants
-            getConfig().load(self.option("src"), self.namespace)
+            getConfig(self.parent.name).load(self.option("src"), self.namespace)
 
     def startElement(self, name, attrs):
         # Manages the handler for this element's content
@@ -500,7 +503,7 @@ class ChooseWhen(SimpleConstant):
     forbidden_options=["key"]
 
 if __name__ == '__main__':
-	c=getConfig()
+	c=getConfig("config")
 	c.load("file:config.xml")
 	for n in c:
 	    print n.namespace, ":", n.key, ":", n
