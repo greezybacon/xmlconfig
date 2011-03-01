@@ -106,6 +106,14 @@
         </section>
         
         <string key="nested_dict_ref">%(dict_in_dict.internal_dict.inside)</string>
+        
+        <!-- Reference an entire section -->
+        <section key="section_import">%(key4)</section>
+        
+        <!-- Conditional section -->
+        <section key="conditional_section">
+            <!-- currently unsupported -->
+        </section>
     </constants> 
 
     <constants namespace="other">
