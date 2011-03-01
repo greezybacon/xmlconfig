@@ -114,6 +114,9 @@
         <section key="conditional_section">
             <!-- currently unsupported -->
         </section>
+        
+        <!-- Special env namespace for environment variables -->
+        <string key="PATH">%(env:PATH)</string>
     </constants> 
 
     <constants namespace="other">

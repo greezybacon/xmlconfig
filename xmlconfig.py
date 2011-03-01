@@ -7,7 +7,7 @@ Created by Jared Hancock on 2011-02-05.
 Copyright (c) 2011 __MyCompanyName__. All rights reserved.
 """
 
-import sys
+import sys, os
 import re
 import urllib2
 from xml.sax import saxutils, handler, make_parser
@@ -22,6 +22,7 @@ from decimal import Decimal
 # x references, nested references
 # x binary content
 # x ecrypted content
+# x magic environment (env) namespace
 # - locking/unlocking documents with <cryptic> elements
 # - schema & validation script
 # - support password (key) for encrypted stuff
@@ -131,6 +132,9 @@ class XMLConfigParser(handler.ContentHandler, object):
             key=split[1]
         else:
             key=split[0]
+        if namespace == "env":
+            # Special lookup for environment variables
+            return os.environ[key]
         # XXX self.constants should be a hashtable
         for x in self.constants:
             if x.namespace == namespace:
@@ -251,6 +255,9 @@ class Constants(XMLConfigParser, dict):
     
     def __init__(self, **kwargs):
         super(Constants, self).__init__(**kwargs)
+        # Forbid 'env' namespace
+        if self.option("namespace") == "env":
+            raise ValueError("Cannot re-declare magic namespace 'env'")
         if self.option("src") is not None:
             # Load in constants
             getConfig(self.parent.name).load(self.option("src"), self.namespace)
@@ -278,7 +285,7 @@ class Constants(XMLConfigParser, dict):
             if len(splitkey) == 2:
                 return self[splitkey[0]].lookup(splitkey[1])
             return self[splitkey[0]]
-        raise KeyError("{0}: Cannot find constant, {1}".format(key,[x for x in self]))
+        raise KeyError("{0}: Cannot find constant".format(key))
             
     def link_to(self, namespace):
         """
@@ -302,13 +309,13 @@ class SimpleConstant(XMLConfigParser):
     content_types={}
     
     default_options = {
-        "delimiter":            ",",
-        "encoding":             None,
-        "preserve-whitespace":  False,
-        "type":                 "str",
-        "ordered":              False,
-        "src":                  None,
-        "resolve-references":   True
+        "delimiter":            ",",        # List item delimiter
+        "encoding":             None,       # Content encoding (ie. base64)
+        "preserve-whitespace":  False,      # Keep all whitespace in an element
+        "type":                 "str",      # Type of items in a list
+        "ordered":              False,      # Maintain order of a section
+        "src":                  None,       # Where content is located
+        "resolve-references":   True        # Resolve %(key) references
     }
 
     required_options = ["key"]
