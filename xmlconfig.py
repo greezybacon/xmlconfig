@@ -122,17 +122,23 @@ class XMLConfigParser(handler.ContentHandler, object):
             return self
         return self.parent.root
         
-    def lookup(self, key, namespace=""):
-        # XXX self.constants should be a hashtable
+    def lookup(self, key, namespace=LOCAL_NAMESPACE):
+        # XXX A regex would make more sense here
         split = key.split(self.namespace_separator, 1)
+        if len(split) == 2:
+            # XXX override given namespace?
+            namespace=split[0]
+            key=split[1]
+        else:
+            key=split[0]
+        # XXX self.constants should be a hashtable
         for x in self.constants:
-            if len(split) == 2 and len(split[1]):
-                if x.namespace == split[0]:
-                    return x.lookup(split[1])
-            elif x.namespace in (LOCAL_NAMESPACE, namespace): 
+            if x.namespace == namespace:
                 try:
-                    return x.lookup(split[0])
+                    return x.lookup(key)
                 except:
+                    # Keep going. There may be another <constants> element
+                    # in this namespace that has the required key
                     pass
         raise KeyError("{0}: Cannot lookup reference".format(key))
                 
