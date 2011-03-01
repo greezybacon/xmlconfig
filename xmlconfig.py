@@ -429,8 +429,8 @@ class BooleanConstant(SimpleConstant):
             else:
                 return bool(self.content)
     
-@Constants.register_child("dict")
-class DictConstant(Constants):
+@Constants.register_child("section")
+class SectionConstant(Constants):
     @property
     def key(self):
         return self.option("key")
@@ -484,6 +484,9 @@ class ChooseHandler(SimpleConstant):
     forbidden_options=["key"]
     
     import socket
+    # XXX Either move vars all the way up to the XMLConfig class
+    #     or provide some interface to get the add_var method into
+    #     the XMLConfig class
     vars = {
         "hostname": socket.gethostname()
     }
