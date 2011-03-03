@@ -67,7 +67,8 @@ class XMLConfigParser(handler.ContentHandler, object):
         if parser is not None: self.push_parser(parser, namespace)
         if namespace is not None and "namespace" not in self._options:
             self._options["namespace"] = namespace
-        self.onChanged = EventHook()
+        self.on_update = EventHook()
+        self.on_added = EventHook()
         
     def push_parser(self, parser, namespace=None):
         self.parsers.append((parser,namespace))
@@ -117,7 +118,6 @@ class XMLConfigParser(handler.ContentHandler, object):
             parent=self, namespace=self.parser_namespace)
         if new_element.namespace in self.constants:
             new_element = self.constants[new_element.namespace]
-            new_element.clear()
         else:
             self.constants[new_element.namespace] = new_element
         self.parser.setContentHandler(new_element)
@@ -280,36 +280,26 @@ class Constants(XMLConfigParser, dict):
     
     def __init__(self, **kwargs):
         super(Constants, self).__init__(**kwargs)
-        self.__constants = []
         # Forbid 'env' namespace
         if self.option("namespace") == "env":
             raise ValueError("Cannot re-declare magic namespace 'env'")
         if self.option("src") is not None:
             # Load in constants
             getConfig(self.parent.name).load(self.option("src"), self.namespace)
-            
-    def clear(self):
-        "Prep for reloading"
-        self.__constants = []
         
     def startElement(self, name, attrs):
         # Manages the handler for this element's content
         # if there is a child, then the element belongs to it
-        self.__constants.append(self.content_types[name](name=name, 
-            attrs=attrs, parent=self, parser=self.parser,
-            namespace=self.parser_namespace))
-        self.parser.setContentHandler(self.__constants[-1])
+        new_constant = self.content_types[name](name=name, 
+            attrs=attrs, parent=self, namespace=self.parser_namespace)
+        if new_constant.key in self:
+            new_constant = self[new_constant.key]
+            new_constant.clear()
+        else:
+            self[new_constant.key] = new_constant
+        self.parser.setContentHandler(new_constant)
         
     def endElement(self, name):
-        # Transistion to internal dictionary
-        for x in self.__constants:
-            if x.key in self:
-                if x._content != self[x.key]._content:
-                    # Fire at namespace level
-                    self.onChanged.fire("{0}:{1}".format(self.namespace, x.key))
-                    # Fire at constant level
-                    self[x.key].onChanged.fire()
-            self[x.key]=x
         self.parser.setContentHandler(self.parent)
         
     def lookup(self, key):
@@ -366,14 +356,24 @@ class SimpleConstant(XMLConfigParser):
         if not name in self.content_types:
             raise ValueError("{0}: Invalid content".format(name))
         self.children.append(self.content_types[name](name=name, 
-            attrs=attrs, parent=self, parser=self.parser))
+            attrs=attrs, parent=self))
         self.parser.setContentHandler(self.children[-1])
         
     def endElement(self, name):
+        if hasattr(self, '_prev_content') \
+                and self._content != self._prev_content:
+            print "{0}: Changed".format(self.key)
+            self.on_update.fire()
+            self.parent.on_update.fire(self.key)
         self.parser.setContentHandler(self.parent)
         
     def characters(self, what):
         self._content += what
+        
+    def clear(self):
+        "Prep for reloading"
+        self._prev_content = self._content
+        self._content = ""
 
     @property
     def value(self):
