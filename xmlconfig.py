@@ -77,10 +77,14 @@ class XMLConfigParser(handler.ContentHandler, object):
         
     @property
     def parser(self):
+        if len(self.parsers) == 0:
+            return self.parent.parser
         return self.parsers[-1][0]
         
     @property
     def parser_namespace(self):
+        if len(self.parsers) == 0:
+            return self.parent.parser_namespace
         return self.parsers[-1][1]
 
     def parse_options(self, attrs):
@@ -110,16 +114,17 @@ class XMLConfigParser(handler.ContentHandler, object):
             return
         # Keep namespace list simple
         new_element = self.content_types[name](name=name, attrs=attrs,
-            parent=self, parser=self.parser, namespace=self.parser_namespace)
+            parent=self, namespace=self.parser_namespace)
         if new_element.namespace in self.constants:
             new_element = self.constants[new_element.namespace]
-            self.push_parser(new_element._parser, new_element.namespace)
+            new_element.clear()
         else:
             self.constants[new_element.namespace] = new_element
         self.parser.setContentHandler(new_element)
         
     def endElement(self, name):
-        self.pop_parser()
+        if name in self.content_types:
+            self.pop_parser()
         
     @property
     def namespaces(self):
@@ -205,8 +210,7 @@ class XMLConfig(XMLConfigParser):
 
     def load(self, url, namespace=LOCAL_NAMESPACE):
         # Keep track of loaded files to ward off circular dependencies
-        # If file has never been loaded, it should be loaded (duh)
-        load = True
+        load = False
         try:
             content = urllib2.urlopen(url)
         except ValueError:
@@ -225,8 +229,12 @@ class XMLConfig(XMLConfigParser):
             # Reload if the file has been modified
             elif self._files[url]['headers']['last-modified'] \
                     != content.headers.dict['last-modified']:
-                print "*** Reloading " + url + " into " + namespace
-
+                load = True
+        #
+        # If file has never been loaded, it should be loaded (duh)
+        else:
+            load=True
+            
         if load:
             self._files[url] = {
                 'namespace':    namespace, 
@@ -236,8 +244,7 @@ class XMLConfig(XMLConfigParser):
             self.push_parser(parser, namespace)
             parser.setContentHandler(self)
             parser.parse(content)
-        else:
-            print "*** Not loading " + url + " into " + namespace
+            self.pop_parser()
         content.close()
 
         for dst, src in self._links.iteritems():
@@ -280,7 +287,11 @@ class Constants(XMLConfigParser, dict):
         if self.option("src") is not None:
             # Load in constants
             getConfig(self.parent.name).load(self.option("src"), self.namespace)
-
+            
+    def clear(self):
+        "Prep for reloading"
+        self.__constants = []
+        
     def startElement(self, name, attrs):
         # Manages the handler for this element's content
         # if there is a child, then the element belongs to it
@@ -292,13 +303,12 @@ class Constants(XMLConfigParser, dict):
     def endElement(self, name):
         # Transistion to internal dictionary
         for x in self.__constants:
-            #if x.key in self:
-            #    if x.value != self[x.key].value:
-            #        print "{0}: !!! Constant changed".format(x.key)
-            #        # Fire at namespace level
-            #        self.onChanged.fire("{0}:{1}".format(self.namespace, x.key))
-            #        # Fire at constant level
-            #        self[x.key].onChanged.fire()
+            if x.key in self:
+                if x._content != self[x.key]._content:
+                    # Fire at namespace level
+                    self.onChanged.fire("{0}:{1}".format(self.namespace, x.key))
+                    # Fire at constant level
+                    self[x.key].onChanged.fire()
             self[x.key]=x
         self.parser.setContentHandler(self.parent)
         
@@ -550,7 +560,7 @@ class ChooseHandler(SimpleConstant):
             # None of the when elements matched. Use the default
             self.selected = self._default
         return self.selected.content
-
+        
 @ChooseHandler.register_child("default")
 class ChooseDefault(SimpleConstant):
     required_options=[]
@@ -575,9 +585,9 @@ class EventHook(object):
         self.__handlers.remove(handler)
         return self
 
-    def fire(self, obj, *args, **keywargs):
+    def fire(self, *args, **keywargs):
         for handler in self.__handlers:
-            handler.fire(*args, **keywargs)
+            handler(*args, **keywargs)
                 
 if __name__ == '__main__':
 	c=getConfig("config")
