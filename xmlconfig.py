@@ -57,15 +57,17 @@ class XMLConfigParser(handler.ContentHandler, object):
 
     def __init__(self, name=None, attrs=None, parser=None, parent=None, 
             namespace=None):
-        self.constants = []
+        self.constants = {}
         self.parent = parent
         self.parsers = []
         self._content = ""
+        self._parser = parser
         self.type = name
         if attrs is not None: self.parse_options(attrs)
         if parser is not None: self.push_parser(parser, namespace)
         if namespace is not None and "namespace" not in self._options:
             self._options["namespace"] = namespace
+        self.onChanged = EventHook()
         
     def push_parser(self, parser, namespace=None):
         self.parsers.append((parser,namespace))
@@ -106,16 +108,22 @@ class XMLConfigParser(handler.ContentHandler, object):
             # Only enter into <constant> elements (or other registered
             # supported content types)
             return
-        self.constants.append(self.content_types[name](name=name, attrs=attrs,
-            parent=self, parser=self.parser, namespace=self.parser_namespace))
-        self.parser.setContentHandler(self.constants[-1])
+        # Keep namespace list simple
+        new_element = self.content_types[name](name=name, attrs=attrs,
+            parent=self, parser=self.parser, namespace=self.parser_namespace)
+        if new_element.namespace in self.constants:
+            new_element = self.constants[new_element.namespace]
+            self.push_parser(new_element._parser, new_element.namespace)
+        else:
+            self.constants[new_element.namespace] = new_element
+        self.parser.setContentHandler(new_element)
         
     def endElement(self, name):
         self.pop_parser()
         
     @property
     def namespaces(self):
-        return [x.namespace for x in self.constants]
+        return self.constants.keys()
         
     @property
     def root(self):
@@ -136,14 +144,8 @@ class XMLConfigParser(handler.ContentHandler, object):
             # Special lookup for environment variables
             return os.environ[key]
         # XXX self.constants should be a hashtable
-        for x in self.constants:
-            if x.namespace == namespace:
-                try:
-                    return x.lookup(key)
-                except:
-                    # Keep going. There may be another <constants> element
-                    # in this namespace that has the required key
-                    pass
+        return self.constants[namespace].lookup(key)
+
         raise KeyError("{0}: Cannot lookup reference".format(key))
                 
     @classmethod
@@ -160,9 +162,7 @@ class XMLConfigParser(handler.ContentHandler, object):
     namespace = LOCAL_NAMESPACE
         
     def link_namespace(self, namespace, newname):
-        for x in self.constants:
-            if x.namespace == namespace:
-                x.link_to(newname)
+        self.constants[namespace].link_to(newname)
                 
     @property
     def namespace(self):
@@ -181,7 +181,7 @@ class XMLConfig(XMLConfigParser):
         self._links = {}
         # Stuff from XMLConfigParser
         self.parsers = []
-        self.constants = []
+        self.constants = {}
         self.parent = None
         self.name = name
 
@@ -205,21 +205,39 @@ class XMLConfig(XMLConfigParser):
 
     def load(self, url, namespace=LOCAL_NAMESPACE):
         # Keep track of loaded files to ward off circular dependencies
+        # If file has never been loaded, it should be loaded (duh)
+        load = True
         try:
             content = urllib2.urlopen(url)
         except ValueError:
             url = "file:" + url
             content = urllib2.urlopen(url)
         if url in self._files:
-            # Already loaded this file, so just create a link to another
+            # Don't load if the file is alread loaded under a difference
             # namespace
-            self._links[self._files[url]] = namespace
-        else:
-            self._files[url] = namespace
+            if self._files[url]['namespace'] != namespace:
+                # Already loaded this file, so just create a link to another
+                # namespace
+                self._links[self._files[url]['namespace']] = namespace
+                load = False
+            #
+            # XXX Check if 'last-modified' in headers
+            # Reload if the file has been modified
+            elif self._files[url]['headers']['last-modified'] \
+                    != content.headers.dict['last-modified']:
+                print "*** Reloading " + url + " into " + namespace
+
+        if load:
+            self._files[url] = {
+                'namespace':    namespace, 
+                'headers':      content.headers.dict.copy()
+            }
             parser = make_parser()
             self.push_parser(parser, namespace)
             parser.setContentHandler(self)
             parser.parse(content)
+        else:
+            print "*** Not loading " + url + " into " + namespace
         content.close()
 
         for dst, src in self._links.iteritems():
@@ -240,9 +258,9 @@ class XMLConfig(XMLConfigParser):
             return default
 
     def __iter__(self):
-        for x in self.constants:
-            for y in x:
-                yield x[y]
+        for namespace, constants in self.constants.iteritems():
+            for key, x in constants.iteritems():
+                yield x
 
 @XMLConfig.register_child("constants")
 class Constants(XMLConfigParser, dict):
@@ -255,6 +273,7 @@ class Constants(XMLConfigParser, dict):
     
     def __init__(self, **kwargs):
         super(Constants, self).__init__(**kwargs)
+        self.__constants = []
         # Forbid 'env' namespace
         if self.option("namespace") == "env":
             raise ValueError("Cannot re-declare magic namespace 'env'")
@@ -265,16 +284,22 @@ class Constants(XMLConfigParser, dict):
     def startElement(self, name, attrs):
         # Manages the handler for this element's content
         # if there is a child, then the element belongs to it
-        self.constants.append(self.content_types[name](name=name, 
+        self.__constants.append(self.content_types[name](name=name, 
             attrs=attrs, parent=self, parser=self.parser,
             namespace=self.parser_namespace))
-        self.parser.setContentHandler(self.constants[-1])
+        self.parser.setContentHandler(self.__constants[-1])
         
     def endElement(self, name):
         # Transistion to internal dictionary
-        for x in self.constants:
+        for x in self.__constants:
+            #if x.key in self:
+            #    if x.value != self[x.key].value:
+            #        print "{0}: !!! Constant changed".format(x.key)
+            #        # Fire at namespace level
+            #        self.onChanged.fire("{0}:{1}".format(self.namespace, x.key))
+            #        # Fire at constant level
+            #        self[x.key].onChanged.fire()
             self[x.key]=x
-        self.constants = self
         self.parser.setContentHandler(self.parent)
         
     def lookup(self, key):
@@ -536,6 +561,24 @@ class ChooseWhen(SimpleConstant):
     required_options=["test"]
     forbidden_options=["key"]
 
+# EventHook class curtousey of Michael Foord,
+# http://www.voidspace.org.uk/python/weblog/arch%5Fd7%5F2007%5F02%5F03.shtml#e616
+class EventHook(object):
+    def __init__(self):
+        self.__handlers = []
+
+    def __iadd__(self, handler):
+        self.__handlers.append(handler)
+        return self
+
+    def __isub__(self, handler):
+        self.__handlers.remove(handler)
+        return self
+
+    def fire(self, obj, *args, **keywargs):
+        for handler in self.__handlers:
+            handler.fire(*args, **keywargs)
+                
 if __name__ == '__main__':
 	c=getConfig("config")
 	c.autoload()
