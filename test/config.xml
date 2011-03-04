@@ -79,20 +79,20 @@
             54686973207761732068657861646563696d616c20656e636f646564
         </binary>
         
-        <cryptic key="encrypted" salt="h+FaddJXULs8" encoding="base64">
+        <string key="encrypted" salt="h+FaddJXULs8" encoding="base64">
             SkBTEAITWOu5DoKXX4EdPwb85W3h3Q+V
-        </cryptic>
+        </string>
         
         <!-- This cryptic constant has an embedded reference to %(password),
              so it tests the order of decoding, decryption, and reference
              resolution -->
-        <cryptic key="encrypted-with-ref" salt="t3J6jETFKlsN" encoding="base64">
+        <string key="encrypted-with-ref" salt="t3J6jETFKlsN" encoding="base64">
             eEGnzLP0iHXzG0WYs+TqRAr78l6F8Q0dKR5GV9ToHJsPh9EVyay7qA==
-        </cryptic>
+        </string>
         
-        <cryptic key="password" salt="pYzSxGhzoc4H" encoding="base64">
+        <string key="password" salt="pYzSxGhzoc4H" encoding="base64">
             lR3DJXou5Qs=
-        </cryptic>
+        </string>
         
         <string key="dsn">
             DSN=ODBC;UID=schema;PWD=%(password)

@@ -369,7 +369,7 @@ class Blowfish:
         key_len = len (key)
         key=bytearray(key)
         index = 0
-        for i in range (len (self.p_boxes)):
+        for i in xrange (len (self.p_boxes)):
             val = (key[index % key_len] << 24) + \
                   (key[(index + 1) % key_len] << 16) + \
                   (key[(index + 2) % key_len] << 8) + \
@@ -381,14 +381,14 @@ class Blowfish:
         l, r = 0, 0
 
         # Begin chain replacing the p-boxes
-        for i in range (0, len (self.p_boxes), 2):
+        for i in xrange (0, len (self.p_boxes), 2):
             l, r = self.cipher (l, r, self.ENCRYPT)
             self.p_boxes[i] = l
             self.p_boxes[i + 1] = r
 
         # Chain replace the s-boxes
-        for i in range (len (self.s_boxes)):
-            for j in range (0, len (self.s_boxes[i]), 2):
+        for i in xrange (len (self.s_boxes)):
+            for j in xrange (0, len (self.s_boxes[i]), 2):
                 l, r = self.cipher (l, r, self.ENCRYPT)
                 self.s_boxes[i][j] = l
                 self.s_boxes[i][j + 1] = r
@@ -396,21 +396,21 @@ class Blowfish:
     def cipher (self, xl, xr, direction):
 
         if direction == self.ENCRYPT:
-            for i in range (16):
-                xl = xl ^ self.p_boxes[i]
-                xr = self.__round_func (xl) ^ xr
+            for i in xrange (16):
+                xl ^= self.p_boxes[i]
+                xr ^= self.__round_func (xl)
                 xl, xr = xr, xl
             xl, xr = xr, xl
-            xr = xr ^ self.p_boxes[16]
-            xl = xl ^ self.p_boxes[17]
+            xr ^= self.p_boxes[16]
+            xl ^= self.p_boxes[17]
         else:
-            for i in range (17, 1, -1):
-                xl = xl ^ self.p_boxes[i]
-                xr = self.__round_func (xl) ^ xr
+            for i in xrange (17, 1, -1):
+                xl ^= self.p_boxes[i]
+                xr ^= self.__round_func (xl)
                 xl, xr = xr, xl
             xl, xr = xr, xl
-            xr = xr ^ self.p_boxes[1]
-            xl = xl ^ self.p_boxes[0]
+            xr ^= self.p_boxes[1]
+            xl ^= self.p_boxes[0]
         return xl, xr
 
     def __round_func (self, xl):
@@ -421,10 +421,10 @@ class Blowfish:
 
         # Perform all ops as longs then and out the last 32-bits to
         # obtain the integer
-        f = (long (self.s_boxes[0][a]) + long (self.s_boxes[1][b])) % self.modulus
-        f = f ^ long (self.s_boxes[2][c])
-        f = f + long (self.s_boxes[3][d])
-        f = (f % self.modulus) & 0xFFFFFFFF
+        f = (self.s_boxes[0][a] + self.s_boxes[1][b]) % self.modulus
+        f ^= self.s_boxes[2][c]
+        f += self.s_boxes[3][d]
+        f %= self.modulus
 
         return f
 

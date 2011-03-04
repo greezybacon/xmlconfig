@@ -107,6 +107,9 @@ class XMLConfigParser(handler.ContentHandler, object):
     # XXX: Should be a verb
     def option(self, name):
         return self._options[name]
+        
+    def has_option(self, name):
+        return name in self._options
 
     def startElement(self, name, attrs):
         if not name in self.content_types:
@@ -332,6 +335,7 @@ class Constants(XMLConfigParser, dict):
 class SimpleConstant(XMLConfigParser):
     
     content_types={}
+    content_processors=[]
     
     default_options = {
         "delimiter":            ",",        # List item delimiter
@@ -346,8 +350,6 @@ class SimpleConstant(XMLConfigParser):
     required_options = ["key"]
     forbidden_options = ["namespace"]
     
-    reference_regex = re.compile(r'%\(([^%)]+)\)')
-
     def __init__(self, **kwargs):
         super(SimpleConstant, self).__init__(**kwargs)
         self.children =[]
@@ -398,45 +400,47 @@ class SimpleConstant(XMLConfigParser):
             if len(self.children) > 0:
                 # XXX: How to handle multiple children ?
                 return self.children[0].content
-            #
-            # Load basic content
-            if self.option("src") is not None:
-                T=self.import_content(self.option("src"))
-            else:
-                T=self._content
-            # 
-            # Strip whitespace
-            if not self.option("preserve-whitespace"):
-                T=T.strip()
-            #
-            # Decode
-            # XXX Allow for custom decoding to consider wheter or not data
-            # XXX should be encoded
-            if self.option("encoding") is not None:
-                T=self.decode(T, self.option("encoding"))
-            #
-            # Resolve references
-            if self.option("resolve-references"):
-                T = self.resolve_references(T)
+            
+            for proc in self.content_processors:
+                T=proc.process(self, self._content)
+                if T is not None:
+                    self._content=T
+
             #
             # Cache result
-            self._content=T
             self._content_settled=True
         return self._content
         
-    def decode(self, what, how):
-        "Allow for custom decoding (decryption)"
-        # Simple for most types
-        return what.decode(how)
-             
-    def resolve_references(self, what):
-        while True:
-            m=self.reference_regex.search(what)
-            if m is None: break
-            what = what[0:m.start()] + unicode(self.root.lookup(m.group(1),
-                   self.parent.namespace)) + what[m.end():]
-        return what
+    @classmethod
+    def register_processor(cls, processor):
+        for i,x in enumerate(cls.content_processors):
+            if x.order > processor.order:
+                cls.content_processors.insert(i, processor())
+                break
+        else:
+            cls.content_processors.append(processor())
         
+    def __repr__(self):
+        return self.__unicode__()
+        
+    def __unicode__(self):
+        return unicode(self.value)
+        
+class ContentProcessor(object):
+    order=10
+    def process(self, constant, content):
+        raise NotImplementedError()
+        
+class StopProcessing(Exception):
+    pass
+    
+@SimpleConstant.register_processor
+class ContentLoader(ContentProcessor):
+    order=20
+    def process(self, constant, content):
+        if constant.option("src") is not None:
+            return self.import_content(constant.option("src"))
+            
     def import_content(self, url):
         try:
             fp = urllib2.urlopen(url)
@@ -445,13 +449,41 @@ class SimpleConstant(XMLConfigParser):
             raise
         else:
             return fp.read()
-        
-    def __repr__(self):
-        return self.__unicode__()
-        
-    def __unicode__(self):
-        return unicode(self.value)
-
+            
+@SimpleConstant.register_processor
+class WhitespaceStripper(ContentProcessor):
+    order=30
+    def process(self, constant, content):
+        if not constant.option("preserve-whitespace"):
+            return content.strip()
+            
+@SimpleConstant.register_processor
+class WhitespaceStripper(ContentProcessor):
+    order=40
+    def process(self, constant, content):
+        if constant.option("encoding") is not None:
+            return content.decode(constant.option("encoding"))
+            
+@SimpleConstant.register_processor
+class ReferenceResolver(ContentProcessor):
+    order=90
+    reference_regex = re.compile(r'%\(([^%)]+)\)')
+    
+    def process(self, constant, content):
+        if constant.option("resolve-references"):
+            return self.resolve_references(content, constant)
+            
+    def resolve_references(self, what, constant):
+        while True:
+            m=self.reference_regex.search(what)
+            if m is None: break
+            # XXX This is pretty ugly
+            what = what[0:m.start()] \
+                + unicode(constant.root.lookup(m.group(1), 
+                    constant.parent.namespace)) \
+                + what[m.end():]
+        return what
+            
 @Constants.register_child("int")
 @Constants.register_child("long")
 class IntegerConstant(SimpleConstant):
@@ -508,22 +540,6 @@ class ListConstant(SimpleConstant):
                 x=x.strip()
             T[i] = self.type_funcs[self.option('type')](x)
         return T 
-   
-from blowfish import Blowfish 
-import hashlib, hmac
-@Constants.register_child("cryptic")
-class EncryptedConstant(SimpleConstant):
-    default_options = SimpleConstant.default_options.copy()
-    default_options.update({
-        'salt':         'KGS!@#$%'
-    })
-    def decode(self, what, how):
-        # Key is an SHA1 hmac hash of the key attribute of the loaded 
-        # document, the salt of this element, and the namespace
-        # XXX Implement password of this config document
-        key = hmac.new(buffer(self.key), self.option('salt') + self.namespace,
-            hashlib.sha1).digest()
-        return Blowfish(key).decrypt(what.decode(how))
 
 @SimpleConstant.register_child("choose")
 class ChooseHandler(SimpleConstant):
@@ -570,6 +586,9 @@ class ChooseDefault(SimpleConstant):
 class ChooseWhen(SimpleConstant):
     required_options=["test"]
     forbidden_options=["key"]
+    
+# Load extensions
+from .plugins import crypto
 
 # EventHook class curtousey of Michael Foord,
 # http://www.voidspace.org.uk/python/weblog/arch%5Fd7%5F2007%5F02%5F03.shtml#e616
@@ -588,9 +607,3 @@ class EventHook(object):
     def fire(self, *args, **keywargs):
         for handler in self.__handlers:
             handler(*args, **keywargs)
-                
-if __name__ == '__main__':
-	c=getConfig("config")
-	c.autoload()
-	for n in c:
-	    print n.namespace, ":", n.key, ":", n
