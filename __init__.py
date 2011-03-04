@@ -430,25 +430,20 @@ class ContentProcessor(object):
     order=10
     def process(self, constant, content):
         raise NotImplementedError()
-        
-class StopProcessing(Exception):
-    pass
     
+# XXX support not caching the value read from the URL
 @SimpleConstant.register_processor
 class ContentLoader(ContentProcessor):
     order=20
     def process(self, constant, content):
         if constant.option("src") is not None:
-            return self.import_content(constant.option("src"))
-            
-    def import_content(self, url):
-        try:
-            fp = urllib2.urlopen(url)
-        except ValueError, ex:
-            # Invalid url
-            raise
-        else:
-            return fp.read()
+            try:
+                fp = urllib2.urlopen(constant.option("src"))
+            except ValueError, ex:
+                # Invalid url
+                raise
+            else:
+                return fp.read()
             
 @SimpleConstant.register_processor
 class WhitespaceStripper(ContentProcessor):
