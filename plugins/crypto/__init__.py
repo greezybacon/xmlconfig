@@ -37,6 +37,6 @@ class EncryptedContent(ContentProcessor):
             # Key is an SHA1 hmac hash of the key attribute of the loaded 
             # document, the salt of this element, and the namespace
             # XXX Implement password of this config document
-            key = hmac.new(buffer(constant.key), constant.option('salt') 
+            key = hmac.new(buffer(constant.key), constant.options['salt'] 
                 + constant.namespace, hashlib.sha1).digest()
             return Blowfish(key).decrypt(content)

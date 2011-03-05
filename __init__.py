@@ -43,6 +43,17 @@ def getConfig(name=""):
     if name not in __configs:
         __configs[name] = XMLConfig(name)
     return __configs[name]
+    
+class Options(dict):
+    def __init__(self, defaults={}):
+        self.update(defaults)
+        
+    def merge(self, attrs):
+        for name in attrs.getNames():
+            self[name] = attrs[name]
+                    
+    def __delitem__(self):
+        raise NotImplementedError()
 
 class XMLConfigParser(handler.ContentHandler, object):
     content_types = {}
@@ -59,11 +70,12 @@ class XMLConfigParser(handler.ContentHandler, object):
         self.parsers = []
         self._content = ""
         self._parser = parser
+        self._options = Options(self.default_options)
         self.type = name
         if attrs is not None: self.parse_options(attrs)
         if parser is not None: self.push_parser(parser, namespace)
-        if namespace is not None and "namespace" not in self._options:
-            self._options["namespace"] = namespace
+        if namespace is not None and not self.has_option("namespace"):
+            self.options["namespace"] = namespace
         self.on_update = EventHook()
         self.on_added = EventHook()
         
@@ -86,24 +98,22 @@ class XMLConfigParser(handler.ContentHandler, object):
         return self.parsers[-1][1]
 
     def parse_options(self, attrs):
-        self._options = self.default_options.copy()
-        for name in attrs.getNames():
-            self._options[name] = attrs[name]
-
+        self._options.merge(attrs)
+        
         # XXX: Required options
         for name in self.required_options:
-            if name not in self._options:
+            if not self.has_option(name):
                 raise ValueError("{0}: {1} required".format(self.type, name))
                 
         # XXX: Forbidden options
         for name in self.forbidden_options:
-            if name in self._options:
+            if self.has_option(name):
                 raise ValueError("{0}: '{1}' option is forbidden".format(
                     self.type, name))
                 
-    # XXX: Should be a verb
-    def option(self, name):
-        return self._options[name]
+    @property
+    def options(self):
+        return self._options
         
     def has_option(self, name):
         return name in self._options
@@ -171,8 +181,8 @@ class XMLConfigParser(handler.ContentHandler, object):
                 
     @property
     def namespace(self):
-        if 'namespace' in self._options:
-            return self.option('namespace')
+        if self.has_option('namespace'):
+            return self.options['namespace']
         else:
             return self.parent.namespace
 
@@ -281,11 +291,11 @@ class Constants(XMLConfigParser, dict):
     def __init__(self, **kwargs):
         super(Constants, self).__init__(**kwargs)
         # Forbid 'env' namespace
-        if self.option("namespace") == "env":
+        if self.has_option("namespace") and self.options["namespace"] == "env":
             raise ValueError("Cannot re-declare magic namespace 'env'")
-        if self.option("src") is not None:
+        if self.options["src"] is not None:
             # Load in constants
-            getConfig(self.parent.name).load(self.option("src"), self.namespace)
+            getConfig(self.parent.name).load(self.options["src"], self.namespace)
         
     def startElement(self, name, attrs):
         # Manages the handler for this element's content
@@ -385,7 +395,7 @@ class SimpleConstant(XMLConfigParser):
         
     @property
     def key(self):
-        return self.option('key')
+        return self.options['key']
 
     def parseValue(self):
         # noop for str
@@ -433,9 +443,9 @@ class ContentProcessor(object):
 class ContentLoader(ContentProcessor):
     order=20
     def process(self, constant, content):
-        if constant.option("src") is not None:
+        if constant.options["src"] is not None:
             try:
-                fp = urllib2.urlopen(constant.option("src"))
+                fp = urllib2.urlopen(constant.options["src"])
             except ValueError, ex:
                 # Invalid url
                 raise
@@ -446,15 +456,15 @@ class ContentLoader(ContentProcessor):
 class WhitespaceStripper(ContentProcessor):
     order=30
     def process(self, constant, content):
-        if not constant.option("preserve-whitespace"):
+        if not constant.options["preserve-whitespace"]:
             return content.strip()
             
 @SimpleConstant.register_processor
 class WhitespaceStripper(ContentProcessor):
     order=40
     def process(self, constant, content):
-        if constant.option("encoding") is not None:
-            return content.decode(constant.option("encoding"))
+        if constant.options["encoding"] is not None:
+            return content.decode(constant.options["encoding"])
             
 @SimpleConstant.register_processor
 class ReferenceResolver(ContentProcessor):
@@ -462,7 +472,7 @@ class ReferenceResolver(ContentProcessor):
     reference_regex = re.compile(r'%\(([^%)]+)\)')
     
     def process(self, constant, content):
-        if constant.option("resolve-references"):
+        if constant.options["resolve-references"]:
             return self.resolve_references(content, constant)
             
     def resolve_references(self, what, constant):
@@ -505,7 +515,7 @@ class BooleanConstant(SimpleConstant):
 class SectionConstant(Constants):
     @property
     def key(self):
-        return self.option("key")
+        return self.options["key"]
             
 @Constants.register_child("decimal")
 @Constants.register_child("float")
@@ -525,12 +535,12 @@ class ListConstant(SimpleConstant):
     }
     def parseValue(self):
         T = list(self.content.split(
-            self.option("delimiter")))
+            self.options["delimiter"]))
         for i, x in enumerate(T):
             # Convert to declared type
-            if not self.option("preserve-whitespace"):
+            if not self.options["preserve-whitespace"]:
                 x=x.strip()
-            T[i] = self.type_funcs[self.option('type')](x)
+            T[i] = self.type_funcs[self.options['type']](x)
         return T 
 
 @SimpleConstant.register_child("choose")
@@ -558,7 +568,7 @@ class ChooseHandler(SimpleConstant):
             elif isinstance(x, ChooseWhen):
                 # Eval the test element (safely)
                 try:
-                    if eval(self.resolve_references(x.option("test")), 
+                    if eval(self.resolve_references(x.options["test"]), 
                             {}, self.vars):
                         self.selected = x
                         break
