@@ -1,0 +1,26 @@
+TODO:
+Support wish-list
+--------------------------------------------
+x Using a name for a config doc (ie. getConfig(name))
+x list/dict support
+x choose block support
+x namespaces
+x references, nested references
+x binary content
+x ecrypted content
+x magic environment (env) namespace
+- locking/unlocking documents with <cryptic> elements
+- schema & validation script
+- support password (key) for encrypted stuff
+x imports (circular reference auto-correct)
+x import changing local namespace or foreign document
+? references to non-imported namespaces
+x auto loading
+- auto loading -- search in subfolders inside folder name 'config'
+          and make 'config' folder name configurable
+- auto updating (when file is modified)
+- event notification of updates
+- retrieve elements from config file with fall-back default value
+- installer (distutils)
+- installer creates unique host-key for en-/decryption
+- write support (perhaps to be used with (un)locking)
