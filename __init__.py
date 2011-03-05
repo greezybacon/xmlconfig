@@ -2,11 +2,10 @@
 """
 xmlconfig for Python
 
-Created by Jared Hancock on 2011-02-05.
 Copyright (c) 2011 klopen Enterprises. All rights reserved.
 """
 
-# Copyright (c) 2011, Jared Hancock
+# Copyright (c) 2011, Jared Hancock, klopen Enterprises
 # All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without
