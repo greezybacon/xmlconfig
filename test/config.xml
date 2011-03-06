@@ -71,13 +71,13 @@
     
         <string key="import" src="file:file.txt"/>
     
-        <binary key="base64" encoding="base64">
+        <bytes key="base64" encoding="base64">
             VGhpcyB3YXMgYmFzZTY0IGVuY29kZWQK
-        </binary>
+        </bytes>
     
-        <binary key="hexencoded" encoding="hex">
+        <bytes key="hexencoded" encoding="hex">
             54686973207761732068657861646563696d616c20656e636f646564
-        </binary>
+        </bytes>
         
         <string key="encrypted" salt="h+FaddJXULs8" encoding="base64">
             OV+ZAYXobTId/qBUghJK+DSUB9gRbVhi

@@ -412,8 +412,8 @@ class SimpleConstant(XMLConfigParser):
         return self.options['key']
 
     def parseValue(self):
-        # noop for str
-        return self.content
+        # noop for bytes
+        return str(self.content)
         
     @property
     def content(self):
@@ -473,7 +473,7 @@ class ContentLoader(ContentProcessor):
         if constant.options["src"] is not None:
             try:
                 fp = urlopen(constant.options["src"])
-            except ValueError as ex:
+            except ValueError:
                 # Invalid url
                 raise
             else:
@@ -496,8 +496,9 @@ class ContentDecoder(ContentProcessor):
             except LookupError:
                 # Try it with _codec
                 decoder = codecs.getdecoder(constant.options["encoding"] + "_codec")
+            # XXX Try and read encoding from XML document
             return decoder(bytes(content, "utf8"))[0]
-            
+
 @SimpleConstant.register_processor
 class Python3kStringCrap(ContentProcessor):
     order=85
@@ -506,9 +507,10 @@ class Python3kStringCrap(ContentProcessor):
 		# Up to this point we try and keep the data in a binary form if
 		# we can. Now we'll try and convert it to a string
 		# XXX Support a secondary encoding: base64;raw or base64;utf-8, etc.
-        if type(content) is bytes:
-            return content.decode("utf8")
-
+        if not constant.has_option('binary-content'):
+            if type(content) is bytes:
+                return content.decode("utf8")
+            
 @SimpleConstant.register_processor
 class ReferenceResolver(ContentProcessor):
     order=90
@@ -517,16 +519,27 @@ class ReferenceResolver(ContentProcessor):
         if constant.options["resolve-references"]:
             return constant.resolve_references(content)
                         
+@Constants.register_child("bytes")
+class BinaryConstant(SimpleConstant):
+    default_options = SimpleConstant.default_options.copy()
+    default_options.update({
+        "resolve-references":   False,
+        "binary-content":       True
+    })
+
+    def parseValue(self):
+        # noop
+        return self.content
+
+    def resolve_references(self, *args, **kwargs):
+        raise NotImplementedError(
+            "Cannot resolve references inside a binary constant")
+
 @Constants.register_child("int")
 class IntegerConstant(SimpleConstant):
     def parseValue(self):
         return int(self.content)
         
-@Constants.register_child("binary")
-class BinaryConstant(SimpleConstant):
-    def parseValue(self):
-        return bytes(self.content,"utf8")
-
 @Constants.register_child("boolean")    
 class BooleanConstant(SimpleConstant):
     def parseValue(self):
