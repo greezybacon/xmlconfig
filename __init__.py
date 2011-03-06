@@ -30,10 +30,8 @@ Copyright (c) 2011 klopen Enterprises. All rights reserved.
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import sys, os
-import re
-import urllib.request, urllib.error, urllib.parse
-from xml.sax import saxutils, handler, make_parser
+import os, re, sys
+from xml.sax import handler, make_parser
 from decimal import Decimal
 
 LOCAL_NAMESPACE="__local"
@@ -43,6 +41,16 @@ def getConfig(name=""):
     if name not in __configs:
         __configs[name] = XMLConfig(name)
     return __configs[name]
+
+if sys.version_info >= (3,0):
+    import urllib.request, urllib.error, urllib.parse
+    def urlopen(*args, **kwargs):
+        return urllib.request.urlopen(*args, **kwargs)
+else:
+    import urllib2
+    def urlopen(*args, **kwargs):
+        return urllib2.urlopen(*args, **kwargs)
+
     
 class Options(dict):
     def __init__(self, defaults={}):
@@ -222,10 +230,10 @@ class XMLConfig(XMLConfigParser):
         # Keep track of loaded files to ward off circular dependencies
         load = False
         try:
-            content = urllib.request.urlopen(url)
+            content = urlopen(url)
         except ValueError:
             url = "file:" + url
-            content = urllib.request.urlopen(url)
+            content = urlopen(url)
         if url in self._files:
             # Don't load if the file is alread loaded under a difference
             # namespace
@@ -417,6 +425,19 @@ class SimpleConstant(XMLConfigParser):
             # Cache result
             self._content_settled=True
         return self._content
+
+    reference_regex = re.compile(r'%\(([^%)]+)\)')
+    def resolve_references(self, what):
+        while True:
+            m=self.reference_regex.search(what)
+            if m is None: break
+            # XXX This is pretty ugly
+            what = what[0:m.start()] \
+                + str(self.root.lookup(m.group(1), 
+                    self.parent.namespace)) \
+                + what[m.end():]
+        return what
+
         
     @classmethod
     def register_processor(cls, processor):
@@ -445,7 +466,7 @@ class ContentLoader(ContentProcessor):
     def process(self, constant, content):
         if constant.options["src"] is not None:
             try:
-                fp = urllib.request.urlopen(constant.options["src"])
+                fp = urlopen(constant.options["src"])
             except ValueError as ex:
                 # Invalid url
                 raise
@@ -469,23 +490,11 @@ class WhitespaceStripper(ContentProcessor):
 @SimpleConstant.register_processor
 class ReferenceResolver(ContentProcessor):
     order=90
-    reference_regex = re.compile(r'%\(([^%)]+)\)')
     
     def process(self, constant, content):
         if constant.options["resolve-references"]:
-            return self.resolve_references(content, constant)
-            
-    def resolve_references(self, what, constant):
-        while True:
-            m=self.reference_regex.search(what)
-            if m is None: break
-            # XXX This is pretty ugly
-            what = what[0:m.start()] \
-                + str(constant.root.lookup(m.group(1), 
-                    constant.parent.namespace)) \
-                + what[m.end():]
-        return what
-            
+            return constant.resolve_references(content)
+                        
 @Constants.register_child("int")
 @Constants.register_child("long")
 class IntegerConstant(SimpleConstant):
@@ -568,7 +577,7 @@ class ChooseHandler(SimpleConstant):
             elif isinstance(x, ChooseWhen):
                 # Eval the test element (safely)
                 try:
-                    if eval(self.resolve_references(x.options["test"]), 
+                    if eval(x.resolve_references(x.options["test"]), 
                             {}, self.vars):
                         self.selected = x
                         break
