@@ -1,30 +1,5 @@
 # encoding: utf-8
 
-# Copyright (c) 2011, Jared Hancock, klopen Enterprises
-# All rights reserved.
-# 
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
-#     * Redistributions of source code must retain the above copyright
-#       notice, this list of conditions and the following disclaimer.
-#     * Redistributions in binary form must reproduce the above copyright
-#       notice, this list of conditions and the following disclaimer in the
-#       documentation and/or other materials provided with the distribution.
-#     * Neither the name of klopen enterprises nor the
-#       names of its contributors may be used to endorse or promote products
-#       derived from this software without specific prior written permission.
-# 
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-# WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-# DISCLAIMED. IN NO EVENT SHALL KLOPEN ENTERPRISES BE LIABLE FOR ANY
-# DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-# ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-# SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
 from .blowfish import Blowfish 
 from xmlconfig import ContentProcessor, SimpleConstant
 import hashlib, hmac
@@ -42,3 +17,51 @@ class EncryptedContent(ContentProcessor):
                 (constant.options['salt'] + constant.namespace).encode(), 
                 hashlib.sha1).digest()
             return Blowfish(key).decrypt(content)
+
+# Lock / Unlock support
+from xml.dom.minidom import parse
+import random
+from base64 import standard_b64encode
+from xmlconfig.cli import CliCommand
+
+class ConstantLockUtility(CliCommand):
+    __command__ = "lock"
+
+    def run(self, *args):
+        doc = parse("test/lockme.xml")
+        # Look for <constant> elements
+        for x, ns in self.findUnlockedElements(doc):
+            print("key",x.getAttribute('key').encode())
+            print("namespace",ns.encode())
+            # Generate a 72-bit random salt
+            salt = bytearray()
+            for x in range(9):
+                salt.append(random.randint(0,255))
+            print("salt",standard_b64encode(bytes(salt)))
+            
+    def findConstantsElements(self, element):
+        ret = []
+        for node in element.childNodes:
+            if node.nodeName == "constants":
+                ret.append(node)
+            elif node.hasChildNodes:
+                ret.extend(self.findConstantsElements(node))
+        return ret
+
+    def findUnlockedElements(self, element):
+        for ns in self.findConstantsElements(element):
+            if ns.hasAttribute("namespace"):
+                namespace = ns.getAttribute("namespace")
+            else:
+                namespace = "__local"
+            for node in ns.childNodes:
+                # Use Constants.content_types
+                if node.nodeName in ("string"):
+                    if not node.hasAttribute("key"):
+                        continue
+                    if node.hasAttribute("options"):
+                        if "unlocked" in node.getAttribute("options"):
+                            yield (node, namespace)
+
+if __name__ == '__main__':
+    ConstantLockUtility().run()
