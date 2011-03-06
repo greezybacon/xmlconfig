@@ -32,7 +32,7 @@ Copyright (c) 2011 klopen Enterprises. All rights reserved.
 
 import sys, os
 import re
-import urllib2
+import urllib.request, urllib.error, urllib.parse
 from xml.sax import saxutils, handler, make_parser
 from decimal import Decimal
 
@@ -138,7 +138,7 @@ class XMLConfigParser(handler.ContentHandler, object):
         
     @property
     def namespaces(self):
-        return self.constants.keys()
+        return list(self.constants.keys())
         
     @property
     def root(self):
@@ -222,10 +222,10 @@ class XMLConfig(XMLConfigParser):
         # Keep track of loaded files to ward off circular dependencies
         load = False
         try:
-            content = urllib2.urlopen(url)
+            content = urllib.request.urlopen(url)
         except ValueError:
             url = "file:" + url
-            content = urllib2.urlopen(url)
+            content = urllib.request.urlopen(url)
         if url in self._files:
             # Don't load if the file is alread loaded under a difference
             # namespace
@@ -257,7 +257,7 @@ class XMLConfig(XMLConfigParser):
             self.pop_parser()
         content.close()
 
-        for dst, src in self._links.iteritems():
+        for dst, src in self._links.items():
             try:
                 self.link_namespace(src, dst)
                 # XXX Only do this once
@@ -275,8 +275,8 @@ class XMLConfig(XMLConfigParser):
             return default
 
     def __iter__(self):
-        for namespace, constants in self.constants.iteritems():
-            for key, x in constants.iteritems():
+        for namespace, constants in self.constants.items():
+            for key, x in constants.items():
                 yield x
 
 @XMLConfig.register_child("constants")
@@ -371,7 +371,7 @@ class SimpleConstant(XMLConfigParser):
     def endElement(self, name):
         if hasattr(self, '_prev_content') \
                 and self._content != self._prev_content:
-            print "{0}: Changed".format(self.key)
+            print("{0}: Changed".format(self.key))
             self.on_update.fire()
             self.parent.on_update.fire(self.key)
         self.parser.setContentHandler(self.parent)
@@ -431,7 +431,7 @@ class SimpleConstant(XMLConfigParser):
         return self.__unicode__()
         
     def __unicode__(self):
-        return unicode(self.value)
+        return str(self.value)
         
 class ContentProcessor(object):
     order=10
@@ -445,8 +445,8 @@ class ContentLoader(ContentProcessor):
     def process(self, constant, content):
         if constant.options["src"] is not None:
             try:
-                fp = urllib2.urlopen(constant.options["src"])
-            except ValueError, ex:
+                fp = urllib.request.urlopen(constant.options["src"])
+            except ValueError as ex:
                 # Invalid url
                 raise
             else:
@@ -481,7 +481,7 @@ class ReferenceResolver(ContentProcessor):
             if m is None: break
             # XXX This is pretty ugly
             what = what[0:m.start()] \
-                + unicode(constant.root.lookup(m.group(1), 
+                + str(constant.root.lookup(m.group(1), 
                     constant.parent.namespace)) \
                 + what[m.end():]
         return what
@@ -529,7 +529,7 @@ class ListConstant(SimpleConstant):
     type_funcs = {
         "str": str,
         "int": int,
-        "long": long,
+        "long": int,
         "float": Decimal,
         "boolean": bool
     }
