@@ -27,15 +27,8 @@
 
 from .blowfish import Blowfish 
 from xmlconfig import ContentProcessor, SimpleConstant
-import hashlib, hmac, sys
+import hashlib, hmac
 
-# XXX I thought you only had to do stuff like this in Perl!
-if sys.version_info < (3,0):
-    builtin_bytes = bytes
-    # Remove encoding parameters required in py3k
-    def bytes(string, *args, **kwargs):
-        return builtin_bytes(string)
-        
 @SimpleConstant.register_processor
 class EncryptedContent(ContentProcessor):
     order=80

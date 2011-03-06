@@ -44,7 +44,6 @@ def getConfig(name=""):
 
 # Rectify differences between Python 2 and Python3k
 # - urllib2 / urllib.request
-# - bytes - requires an encoding parameter for Python3k
 if sys.version_info >= (3,0):
     import urllib.request, urllib.error, urllib.parse
     def urlopen(*args, **kwargs):
@@ -53,10 +52,6 @@ else:
     import urllib2
     def urlopen(*args, **kwargs):
         return urllib2.urlopen(*args, **kwargs)
-    # Remove encoding parameters required in py3k
-    builtin_bytes = bytes
-    def bytes(string, *args, **kwargs):
-        return builtin_bytes(string)
     
 class Options(dict):
     def __init__(self, defaults={}):
