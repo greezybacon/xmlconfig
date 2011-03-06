@@ -57,7 +57,6 @@ else:
     builtin_bytes = bytes
     def bytes(string, *args, **kwargs):
         return builtin_bytes(string)
-
     
 class Options(dict):
     def __init__(self, defaults={}):
@@ -503,7 +502,7 @@ class ContentDecoder(ContentProcessor):
             
 @SimpleConstant.register_processor
 class Python3kStringCrap(ContentProcessor):
-    order=89
+    order=85
     
     def process(self, constant, content):
 		# Up to this point we try and keep the data in a binary form if
