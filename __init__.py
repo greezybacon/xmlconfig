@@ -435,8 +435,6 @@ class SimpleConstant(XMLConfigParser):
     reference_regex = re.compile(r'%\(([^%)]+)\)')
     def resolve_references(self, what):
         while True:
-            if type(what) is not str:
-                what=str(what)
             m=self.reference_regex.search(what)
             if m is None: break
             # XXX This is pretty ugly
