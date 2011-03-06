@@ -90,7 +90,7 @@
             dv5XkQCiUXW0EgL3uc0fUmsOA6+CK9G9S2pj+X+HgphMd/cPPNAtMw==
         </string>
         
-        <string key="password" salt="pYzSxGhzoc4H" encoding="base64">
+        <string key="password" options="salt:pYzSxGhzoc4H;encoding:base64">
             UhRy2pLYh6g=
         </string>
         

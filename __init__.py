@@ -61,14 +61,26 @@ else:
 class Options(dict):
     def __init__(self, defaults={}):
         self.update(defaults)
+        self.process()
+
+    def process(self):
+        # Support options combined into an "options" attribute in
+        # a css style
+        if 'options' in self:
+            for x in self['options'].split(';'):
+                kv = x.strip().split(":",1)
+                if len(kv) == 2:
+                    self[kv[0]] = kv[1]
+                else:
+                    # If no colon, assume a "set" boolean option
+                    self[kv[0]] = True
+            del self['options']
         
     def merge(self, attrs):
         for name in attrs.getNames():
             self[name] = attrs[name]
+        self.process()
                     
-    def __delitem__(self):
-        raise NotImplementedError()
-
 class XMLConfigParser(handler.ContentHandler, object):
     content_types = {}
     default_options = {}
@@ -234,6 +246,8 @@ class XMLConfig(XMLConfigParser):
 
     def load(self, url, namespace=LOCAL_NAMESPACE):
         # Keep track of loaded files to ward off circular dependencies
+        # XXX Save url of root-ly loaded document so that it can be
+        # XXX prepended to additionally sourced documents later
         load = False
         try:
             content = urlopen(url)
