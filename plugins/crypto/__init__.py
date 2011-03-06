@@ -45,7 +45,7 @@ class EncryptedContent(ContentProcessor):
             # document, the salt of this element, and the namespace
             # XXX Implement password of this config document
             # XXX Try and read encoding from XML document
-            key = hmac.new(bytes(constant.key, "utf8"), 
-                bytes(constant.options['salt'] + constant.namespace, "utf8"), 
+            key = hmac.new(constant.key.encode(), 
+                (constant.options['salt'] + constant.namespace).encode(), 
                 hashlib.sha1).digest()
             return Blowfish(key).decrypt(content)

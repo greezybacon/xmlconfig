@@ -511,7 +511,7 @@ class ContentDecoder(ContentProcessor):
                 # Try it with _codec
                 decoder = codecs.getdecoder(constant.options["encoding"] + "_codec")
             # XXX Try and read encoding from XML document
-            return decoder(bytes(content, "utf8"))[0]
+            return decoder(content.encode())[0]
 
 @SimpleConstant.register_processor
 class Python3kStringCrap(ContentProcessor):
@@ -523,7 +523,7 @@ class Python3kStringCrap(ContentProcessor):
 		# XXX Support a secondary encoding: base64;raw or base64;utf-8, etc.
         if not constant.has_option('binary-content'):
             if type(content) is bytes:
-                return content.decode("utf8")
+                return content.decode()
             
 @SimpleConstant.register_processor
 class ReferenceResolver(ContentProcessor):
