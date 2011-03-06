@@ -82,12 +82,12 @@ class Blowfish:
     DECRYPT = 1
 
     # For the __round_func
-    modulus = long (2) ** 32
+    modulus = int (2) ** 32
 
     def __init__ (self, key):
 
         if not key or len (key) < 8 or len (key) > 56:
-            raise RuntimeError, "Attempted to initialize Blowfish cipher with key of invalid length: %s" %len (key)
+            raise RuntimeError("Attempted to initialize Blowfish cipher with key of invalid length: %s" %len (key))
 
         self.p_boxes = [
             0x243F6A88, 0x85A308D3, 0x13198A2E, 0x03707344,
@@ -369,7 +369,7 @@ class Blowfish:
         key_len = len (key)
         key=bytearray(key)
         index = 0
-        for i in xrange (len (self.p_boxes)):
+        for i in range (len (self.p_boxes)):
             val = (key[index % key_len] << 24) + \
                   (key[(index + 1) % key_len] << 16) + \
                   (key[(index + 2) % key_len] << 8) + \
@@ -381,14 +381,14 @@ class Blowfish:
         l, r = 0, 0
 
         # Begin chain replacing the p-boxes
-        for i in xrange (0, len (self.p_boxes), 2):
+        for i in range (0, len (self.p_boxes), 2):
             l, r = self.cipher (l, r, self.ENCRYPT)
             self.p_boxes[i] = l
             self.p_boxes[i + 1] = r
 
         # Chain replace the s-boxes
-        for i in xrange (len (self.s_boxes)):
-            for j in xrange (0, len (self.s_boxes[i]), 2):
+        for i in range (len (self.s_boxes)):
+            for j in range (0, len (self.s_boxes[i]), 2):
                 l, r = self.cipher (l, r, self.ENCRYPT)
                 self.s_boxes[i][j] = l
                 self.s_boxes[i][j + 1] = r
@@ -396,7 +396,7 @@ class Blowfish:
     def cipher (self, xl, xr, direction):
 
         if direction == self.ENCRYPT:
-            for i in xrange (16):
+            for i in range (16):
                 xl ^= self.p_boxes[i]
                 xr ^= self.__round_func (xl)
                 xl, xr = xr, xl
@@ -404,7 +404,7 @@ class Blowfish:
             xr ^= self.p_boxes[16]
             xl ^= self.p_boxes[17]
         else:
-            for i in xrange (17, 1, -1):
+            for i in range (17, 1, -1):
                 xl ^= self.p_boxes[i]
                 xr ^= self.__round_func (xl)
                 xl, xr = xr, xl
@@ -430,7 +430,7 @@ class Blowfish:
 
     def encrypt (self, data):
         
-        if type(data) is str: data = bytearray(data)
+        if not type(data) is bytearray: data = bytearray(data)
         chars = bytearray()
 
         while len (data) % 8 > 0:
@@ -449,11 +449,11 @@ class Blowfish:
                 (cr >> 24) & 0xFF, (cr >> 16) & 0xFF, (cr >> 8) & 0xFF, cr & 0xFF
             ])
             i += 8
-        return str(chars)
+        return bytes(chars)
 
     def decrypt (self, data):
 
-        if type(data) is str: data = bytearray(data)
+        if not type(data) is bytearray: data = bytearray(data)
         chars = bytearray()
         
         i=0
@@ -468,7 +468,7 @@ class Blowfish:
                 (xr >> 24) & 0xFF, (xr >> 16) & 0xFF, (xr >> 8) & 0xFF, xr & 0xFF
             ])
             i += 8
-        return str(chars)
+        return bytes(chars.rstrip(b'\x00'))
 
     def blocksize (self):
         return 8
@@ -488,30 +488,31 @@ if __name__ == '__main__':
     key = [0xFE,0xDC,0xBA,0x98,0x76,0x54,0x32,0x10]
     cipher = Blowfish (key)
 
-    print "Testing encryption:"
+    print("Testing encryption:")
     xl = 123456
     xr = 654321
-    print "\tPlain text: (%s, %s)" %(xl, xr)
+    print("\tPlain text: (%s, %s)" %(xl, xr))
     cl, cr = cipher.cipher (xl, xr, cipher.ENCRYPT)
-    print "\tCrypted is: (%s, %s)" %(cl, cr)
+    print("\tCrypted is: (%s, %s)" %(cl, cr))
     dl, dr = cipher.cipher (cl, cr, cipher.DECRYPT)
-    print "\tUnencrypted is: (%s, %s)" %(dl, dr)
+    print("\tUnencrypted is: (%s, %s)" %(dl, dr))
 
-    print "Testing buffer encrypt:"
+    print("Testing buffer encrypt:")
     text = [0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF]
-    print "\tText: %s" %text
+    print("\tText: %s" %text)
     crypted = cipher.encrypt (text)
-    print "\tEncrypted:", str(bytearray(crypted))
+    print("\tEncrypted:", crypted)
     decrypted = cipher.decrypt (crypted)
-    print "\tDecrypted: %s" %decrypted
+    print("\tDecrypted: %s" %decrypted)
     
-    from blowfish import Blowfish 
-    import hashlib, hmac
+    import hashlib, hmac, codecs
     
-    key = hmac.new(buffer(u"encrypted-with-ref"), "t3J6jETFKlsN" + "__local", hashlib.sha1).digest()
+    key = hmac.new(b"encrypted", b"h+FaddJXULs8" + b"__local", hashlib.sha1).digest()
     cipher = Blowfish(key)
-    print """
-    <cryptic key="encrypted" salt="t3J6jETFKlsN" encoding="base64">
-        {0}    </cryptic>""".format(cipher.encrypt("Encrypted reference to %(password)").encode('base64'))
+    base64 = codecs.getencoder('base64_codec')
+    print("""
+    <string key="encrypted" salt="h+FaddJXULs8" encoding="base64">
+        {0}    </cryptic>""".format(base64(cipher.encrypt(
+            b"This is sooper secret"))[0]))
     
-    print "Timing:", time.time() - start, "s"
+    print("Timing:", time.time() - start, "s")

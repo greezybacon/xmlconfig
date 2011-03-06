@@ -30,7 +30,7 @@ Copyright (c) 2011 klopen Enterprises. All rights reserved.
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import os, re, sys
+import os, re, sys, codecs
 from xml.sax import handler, make_parser
 from decimal import Decimal
 
@@ -42,6 +42,9 @@ def getConfig(name=""):
         __configs[name] = XMLConfig(name)
     return __configs[name]
 
+# Rectify differences between Python 2 and Python3k
+# - urllib2 / urllib.request
+# - bytes - requires an encoding parameter for Python3k
 if sys.version_info >= (3,0):
     import urllib.request, urllib.error, urllib.parse
     def urlopen(*args, **kwargs):
@@ -50,6 +53,10 @@ else:
     import urllib2
     def urlopen(*args, **kwargs):
         return urllib2.urlopen(*args, **kwargs)
+    # Remove encoding parameters required in py3k
+    builtin_bytes = bytes
+    def bytes(string, *args, **kwargs):
+        return builtin_bytes(string)
 
     
 class Options(dict):
@@ -246,7 +253,7 @@ class XMLConfig(XMLConfigParser):
             # XXX Check if 'last-modified' in headers
             # Reload if the file has been modified
             elif self._files[url]['headers']['last-modified'] \
-                    != content.headers.dict['last-modified']:
+                    != content.headers['last-modified']:
                 load = True
         #
         # If file has never been loaded, it should be loaded (duh)
@@ -256,7 +263,7 @@ class XMLConfig(XMLConfigParser):
         if load:
             self._files[url] = {
                 'namespace':    namespace, 
-                'headers':      content.headers.dict.copy()
+                'headers':      dict(content.headers.items())
             }
             parser = make_parser()
             self.push_parser(parser, namespace)
@@ -429,6 +436,8 @@ class SimpleConstant(XMLConfigParser):
     reference_regex = re.compile(r'%\(([^%)]+)\)')
     def resolve_references(self, what):
         while True:
+            if type(what) is not str:
+                what=str(what)
             m=self.reference_regex.search(what)
             if m is None: break
             # XXX This is pretty ugly
@@ -481,12 +490,28 @@ class WhitespaceStripper(ContentProcessor):
             return content.strip()
             
 @SimpleConstant.register_processor
-class WhitespaceStripper(ContentProcessor):
+class ContentDecoder(ContentProcessor):
     order=40
     def process(self, constant, content):
         if constant.options["encoding"] is not None:
-            return content.decode(constant.options["encoding"])
+            try:
+                decoder = codecs.getdecoder(constant.options["encoding"])
+            except LookupError:
+                # Try it with _codec
+                decoder = codecs.getdecoder(constant.options["encoding"] + "_codec")
+            return decoder(bytes(content, "utf8"))[0]
             
+@SimpleConstant.register_processor
+class Python3kStringCrap(ContentProcessor):
+    order=89
+    
+    def process(self, constant, content):
+		# Up to this point we try and keep the data in a binary form if
+		# we can. Now we'll try and convert it to a string
+		# XXX Support a secondary encoding: base64;raw or base64;utf-8, etc.
+        if type(content) is bytes:
+            return content.decode("utf8")
+
 @SimpleConstant.register_processor
 class ReferenceResolver(ContentProcessor):
     order=90
@@ -496,7 +521,6 @@ class ReferenceResolver(ContentProcessor):
             return constant.resolve_references(content)
                         
 @Constants.register_child("int")
-@Constants.register_child("long")
 class IntegerConstant(SimpleConstant):
     def parseValue(self):
         return int(self.content)
@@ -504,7 +528,7 @@ class IntegerConstant(SimpleConstant):
 @Constants.register_child("binary")
 class BinaryConstant(SimpleConstant):
     def parseValue(self):
-        return buffer(self.content)
+        return bytes(self.content,"utf8")
 
 @Constants.register_child("boolean")    
 class BooleanConstant(SimpleConstant):

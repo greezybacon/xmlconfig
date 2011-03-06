@@ -27,8 +27,15 @@
 
 from .blowfish import Blowfish 
 from xmlconfig import ContentProcessor, SimpleConstant
-import hashlib, hmac
+import hashlib, hmac, sys
 
+# XXX I thought you only had to do stuff like this in Perl!
+if sys.version_info < (3,0):
+    builtin_bytes = bytes
+    # Remove encoding parameters required in py3k
+    def bytes(string, *args, **kwargs):
+        return builtin_bytes(string)
+        
 @SimpleConstant.register_processor
 class EncryptedContent(ContentProcessor):
     order=80
@@ -37,6 +44,8 @@ class EncryptedContent(ContentProcessor):
             # Key is an SHA1 hmac hash of the key attribute of the loaded 
             # document, the salt of this element, and the namespace
             # XXX Implement password of this config document
-            key = hmac.new(buffer(constant.key), constant.options['salt'] 
-                + constant.namespace, hashlib.sha1).digest()
+            # XXX Try and read encoding from XML document
+            key = hmac.new(bytes(constant.key, "utf8"), 
+                bytes(constant.options['salt'] + constant.namespace, "utf8"), 
+                hashlib.sha1).digest()
             return Blowfish(key).decrypt(content)
