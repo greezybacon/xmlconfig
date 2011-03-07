@@ -176,21 +176,16 @@ class XMLConfigParser(handler.ContentHandler, object):
             handler.content_types[name] = clas
             return clas
         return register
-        
-    # The parser doesn't have a namespace. If an element looks to this
-    # as the parent looking for a namespace, then one must not have been
-    # defined for the child, so return the default namespace
-    namespace = LOCAL_NAMESPACE
-        
-    def link_namespace(self, namespace, newname):
-        self.constants[namespace].link_to(newname)
-                
+       
     @property
     def namespace(self):
         if self.has_option('namespace'):
             return self.options['namespace']
         else:
             return self.parent.namespace
+
+    def link_namespace(self, namespace, newname):
+        self.constants[namespace].link_to(newname)
 
 class XMLConfig(XMLConfigParser):
     default_options = {
@@ -309,7 +304,7 @@ class Constants(XMLConfigParser, dict):
         # Manages the handler for this element's content
         # if there is a child, then the element belongs to it
         new_constant = self.content_types[name](name=name, 
-            attrs=attrs, parent=self, namespace=self.parser_namespace)
+            attrs=attrs, parent=self, namespace=self.namespace)
         if new_constant.key in self:
             new_constant = self[new_constant.key]
             new_constant.clear()
@@ -330,6 +325,7 @@ class Constants(XMLConfigParser, dict):
             return self[splitkey[0]]
         raise KeyError("{0}: Cannot find constant".format(key))
             
+
     def link_to(self, namespace):
         """
         Used to avert circular dependencies. If a file is loaded that sources
@@ -490,7 +486,8 @@ class ContentDecoder(ContentProcessor):
             except LookupError:
                 # Try it with _codec
                 decoder = codecs.getdecoder(constant.options["encoding"] + "_codec")
-            # XXX Try and read encoding from XML document
+            # Don't convert to a string because it may be binary content.
+            # It will be converted later if necessary
             return decoder(content.encode())[0]
 
 @SimpleConstant.register_processor
@@ -498,9 +495,10 @@ class Python3kStringCrap(ContentProcessor):
     order=85
     
     def process(self, constant, content):
-		# Up to this point we try and keep the data in a binary form if
-		# we can. Now we'll try and convert it to a string
-		# XXX Support a secondary encoding: base64;raw or base64;utf-8, etc.
+        # Up to this point we try and keep the data in a binary form if
+        # we can. Now we'll try and convert it to a string, which will
+        # be required to resolve-references
+        # XXX Support a secondary encoding: base64;raw or base64;utf-8, etc.
         if not constant.has_option('binary-content'):
             if type(content) is bytes:
                 return content.decode()
