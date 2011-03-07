@@ -18,26 +18,59 @@ class EncryptedContent(ContentProcessor):
                 hashlib.sha1).digest()
             return Blowfish(key).decrypt(content)
 
-# Lock / Unlock support
-from xml.dom.minidom import parse
-import random
+# Lock / Unlock cli support
+from xml.dom.minidom import parse, Text
+import random, re
 from base64 import standard_b64encode
 from xmlconfig.cli import CliCommand
+from xmlconfig import Options
 
+@CliCommand.register
 class ConstantLockUtility(CliCommand):
     __command__ = "lock"
 
     def run(self, *args):
-        doc = parse("test/lockme.xml")
+        print(args)
+        doc = parse(args[0])
         # Look for <constant> elements
         for x, ns in self.findUnlockedElements(doc):
-            print("key",x.getAttribute('key').encode())
-            print("namespace",ns.encode())
+            key= x.getAttribute('key').encode()
+            namespace= ns.encode()
             # Generate a 72-bit random salt
             salt = bytearray()
-            for x in range(9):
+            for z in range(9):
                 salt.append(random.randint(0,255))
-            print("salt",standard_b64encode(bytes(salt)))
+            salt= bytes(salt)
+
+            # Form the encryption key
+            ekey = hmac.new(key, salt + namespace,
+                hashlib.sha1).digest()
+
+            # Get the element content
+            content= ""
+            for y in x.childNodes:
+                if isinstance(y, Text):
+                    # Perform the encryption
+                    # Preserve leading and trailing whitespace
+                    leading = re.search(r'^\s*', y.data).group(0)
+                    trailing = re.search(r'\s*$', y.data).group(0)
+                    y.data= leading + standard_b64encode(
+                        Blowfish(ekey).encrypt(y.data.strip().encode())).decode() \
+                        + trailing
+
+            opt= Options({"options":x.getAttribute("options")})
+
+            # Drop unlocked option
+            del opt["unlocked"]
+            
+            # Add in new encryption options
+            opt['salt'] = standard_b64encode(salt).decode()
+            opt['locked'] = True
+
+            # Add in encryption options to the element 'options' attribute
+            x.setAttribute("options", opt.options_string)
+
+        print(doc.toxml())
             
     def findConstantsElements(self, element):
         ret = []
@@ -62,6 +95,3 @@ class ConstantLockUtility(CliCommand):
                     if node.hasAttribute("options"):
                         if "unlocked" in node.getAttribute("options"):
                             yield (node, namespace)
-
-if __name__ == '__main__':
-    ConstantLockUtility().run()

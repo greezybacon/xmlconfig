@@ -45,6 +45,16 @@ class Options(dict):
                     # If no colon, assume a "set" boolean option
                     self[kv[0]] = True
             del self['options']
+
+    @property
+    def options_string(self):
+        ret= []
+        for k,v in self.items():
+            if v in (None, True):
+                ret.append(k)
+            else:
+                ret.append("{0}:{1}".format(k,v))
+        return ";".join(ret)
         
     def merge(self, attrs):
         for name in attrs.getNames():
