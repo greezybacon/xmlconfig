@@ -8,6 +8,8 @@ the content of encrypted elements.
 
 class CliCommand(object):
     __command__ = ""
+    __args__ = []
+    __help__ = "(Undocumented)"
     __registry__ = {}
     # XXX Support a help interface with optparse
 
@@ -22,14 +24,22 @@ class CliCommand(object):
         return cls.__registry__[command]
 
 from xmlconfig.plugins import *
+from optparse import OptionParser
 import sys
 def cli_main():
     args = sys.argv[1:]
     # Look up the command
     try:
         cmd = CliCommand.get(args[0])
-        cmd().run(*args[1:])
-    except:
-        raise
-        print("{0}: Invalid command. Use --help for help"
+        op = OptionParser(option_list=cmd.__args__, usage="%prog {0} [options]"
             .format(args[0]))
+        options, args = op.parse_args(args=args[1:])
+        cmd().run(options, *args)
+    except:
+        op = OptionParser(usage="%prog command [options]",
+            epilog="For detailed help on individual commands, use the "
+                   "--help option with the command")
+        op.print_help()
+        print("\nAvailable commands include:")
+        for name, clas in CliCommand.__registry__.items():
+            print("    % -12s %s" % (name, clas.__help__))

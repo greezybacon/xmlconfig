@@ -1,5 +1,6 @@
 # encoding: utf-8
 
+# XXX Prefer pycrypto if available
 from .blowfish import Blowfish 
 from xmlconfig import ContentProcessor, SimpleConstant
 import hashlib, hmac
@@ -24,14 +25,28 @@ import random, re
 from base64 import standard_b64encode
 from xmlconfig.cli import CliCommand
 from xmlconfig import Options
+import os.path
+
+# XXX Upgrade this to argparse when we drop Python 2.6 support
+from optparse import make_option
 
 @CliCommand.register
 class ConstantLockUtility(CliCommand):
     __command__ = "lock"
+    __help__ = "Lock encrypted elements in a config file"
+    __args__ = [
+        make_option("-f","--file",metavar="FILE",dest="filename",
+            action="store",help="File to be locked",default=""),
+        make_option("-i","--in-place",dest="output",
+            action="store_false",default=True,
+            help="Overwrite input file with locked XML config rather than " \
+                 "writing file to standard out")
+    ]
 
-    def run(self, *args):
-        print(args)
-        doc = parse(args[0])
+    def run(self, options, *args):
+        if not os.path.exists(options.filename):
+            raise ValueError("{0}: Config file does not exist".format(args[0]))
+        doc = parse(options.filename)
         # Look for <constant> elements
         for x, ns in self.findUnlockedElements(doc):
             key= x.getAttribute('key').encode()
@@ -55,6 +70,7 @@ class ConstantLockUtility(CliCommand):
                     leading = re.search(r'^\s*', y.data).group(0)
                     trailing = re.search(r'\s*$', y.data).group(0)
                     y.data= leading + standard_b64encode(
+                        # XXX This looks disgusting
                         Blowfish(ekey).encrypt(y.data.strip().encode())).decode() \
                         + trailing
 
