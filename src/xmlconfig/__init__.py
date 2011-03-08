@@ -57,8 +57,11 @@ class Options(dict):
         return ";".join(ret)
         
     def merge(self, attrs):
-        for name in attrs.getNames():
-            self[name] = attrs[name]
+        if type(attrs) is dict:
+            self.update(attrs)
+        else:
+            for name in attrs.getNames():
+                self[name] = attrs[name]
         self.process()
                     
 class XMLConfigParser(handler.ContentHandler, object):
@@ -308,6 +311,8 @@ class Constants(XMLConfigParser, dict):
         if new_constant.key in self:
             new_constant = self[new_constant.key]
             new_constant.clear()
+            new_constant.options.merge(new_constant.default_options)
+            new_constant.options.merge(attrs)
         else:
             self[new_constant.key] = new_constant
         self.parser.setContentHandler(new_constant)
@@ -355,7 +360,8 @@ class SimpleConstant(XMLConfigParser):
         "type":                 "str",      # Type of items in a list
         "ordered":              False,      # Maintain order of a section
         "src":                  None,       # Where content is located
-        "resolve-references":   True        # Resolve %(key) references
+        "resolve-references":   True,       # Resolve %(key) references
+        "no-cache":             False       # Don't cache content (used with src)
     }
 
     required_options = ["key"]
@@ -392,7 +398,7 @@ class SimpleConstant(XMLConfigParser):
     def value(self):
         # XXX For some more security, it might be nice to provide an
         #     option to not store the value in memory
-        if not hasattr(self, '_value'):
+        if self.options["no-cache"] or not hasattr(self, '_value'):
             self._value = self.parseValue()
 
         return self._value
@@ -418,8 +424,9 @@ class SimpleConstant(XMLConfigParser):
                     self._content=T
 
             #
-            # Cache result
-            self._content_settled=True
+            # Cache result (maybe)
+            if not self.options["no-cache"]:
+                self._content_settled=True
         return self._content
 
     reference_regex = re.compile(r'%\(([^%)]+)\)')
