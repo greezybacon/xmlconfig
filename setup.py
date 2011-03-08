@@ -9,9 +9,10 @@ setup(
     version="0.1.0",
     description="xml-based configuration parser for Python",
     author="Jared Hancock",
-    maintainer_email="gravydish@gmail.com",
+    author_email="gravydish@gmail.com",
     url="http://code.google.com/p/xmlconfig/",
-    packages=["xmlconfig"],
+    packages=["xmlconfig","xmlconfig.plugins","xmlconfig.plugins.crypto"],
+    package_dir={"xmlconfig": "src/xmlconfig"},
     scripts=["bin/xmlconfig"],
     long_description="""xmlconfig is a feature rich configuration parser 
     for the Python programming language providing a more flexable approach
@@ -20,6 +21,7 @@ setup(
     configuration, strong typing, and extensibility.""",
     classifiers=[
         "Development Status :: 3 - Alpha",
+        "Environment :: Plugins",
         "Intended Audience :: Developers",
         "License :: OSI Aproved :: BSD License",
         "Operating System :: POSIX",
