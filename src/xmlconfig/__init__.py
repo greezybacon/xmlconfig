@@ -256,11 +256,7 @@ class XMLConfig(XMLConfigParser):
                 'namespace':    namespace, 
                 'headers':      dict(content.headers.items())
             }
-            parser = make_parser()
-            self.push_parser(parser, namespace)
-            parser.setContentHandler(self)
-            parser.parse(content)
-            self.pop_parser()
+        self.parse(content, namespace)
         content.close()
 
         for dst, src in self._links.items():
@@ -271,12 +267,19 @@ class XMLConfig(XMLConfigParser):
                 # The target namespace hasn't been parsed yet
                 pass
 
+    def parse(self, open_file, namespace):
+        parser = make_parser()
+        self.push_parser(parser, namespace)
+        parser.setContentHandler(self)
+        parser.parse(open_file)
+        self.pop_parser()
+
     def __getitem__(self, name):
         return self.lookup(name)
 
     def get(self, name, default=None):
         try:
-            return self[name]
+            return self[name].value
         except KeyError:
             return default
 
@@ -354,10 +357,8 @@ class SimpleConstant(XMLConfigParser):
     content_processors=[]
     
     default_options = {
-        "delimiter":            ",",        # List item delimiter
         "encoding":             None,       # Content encoding (ie. base64)
         "preserve-whitespace":  False,      # Keep all whitespace in an element
-        "type":                 "str",      # Type of items in a list
         "ordered":              False,      # Maintain order of a section
         "src":                  None,       # Where content is located
         "resolve-references":   True,       # Resolve %(key) references
@@ -381,7 +382,6 @@ class SimpleConstant(XMLConfigParser):
     def endElement(self, name):
         if hasattr(self, '_prev_content') \
                 and self._content != self._prev_content:
-            print("{0}: Changed".format(self.key))
             self.on_update.fire()
             self.parent.on_update.fire(self.key)
         self.parser.setContentHandler(self.parent)
@@ -540,6 +540,7 @@ class IntegerConstant(SimpleConstant):
         return int(self.content)
         
 @Constants.register_child("boolean")    
+@Constants.register_child("bool")    
 class BooleanConstant(SimpleConstant):
     def parseValue(self):
         try:
@@ -558,6 +559,10 @@ class SectionConstant(Constants):
     @property
     def key(self):
         return self.options["key"]
+
+    @property
+    def value(self):
+        return self
             
 @Constants.register_child("decimal")
 @Constants.register_child("float")
@@ -567,6 +572,11 @@ class DecimalConstant(SimpleConstant):
     
 @Constants.register_child("list")
 class ListConstant(SimpleConstant):
+    default_options = SimpleConstant.default_options.copy()
+    default_options.update({
+        "delimiter":            ",",        # List item delimiter
+        "type":                 "str"       # Type of items in a list
+    })
     required_options=["delimiter","type"]
     type_funcs = {
         "str": str,
