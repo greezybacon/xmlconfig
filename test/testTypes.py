@@ -113,6 +113,28 @@ def testTypeDict():
     assert type(conf.get("dict").get("item1").value) is str
     assert type(conf["dict"].get("item2").value) is int
 
+def testNestedDict():
+    from xmlconfig import getConfig, LOCAL_NAMESPACE
+    from core import stringIOWrapper
+    conf=getConfig()
+    conf.parse(stringIOWrapper(
+    u"""<?xml version="1.0" encoding="utf-8"?>
+    <config>
+        <constants>
+            <!-- Test for a nested dictionary -->
+            <section key="dict_in_dict">
+                <section key="internal_dict">
+                    <string key="inside">Inside a dict inside a dict</string>
+                </section>
+            </section>
+        </constants>
+    </config>
+    """), LOCAL_NAMESPACE)
+    assert "internal_dict" in conf.get("dict_in_dict")
+    assert "inside" in conf.get("dict_in_dict").get("internal_dict")
+    assert conf.get("dict_in_dict.internal_dict.inside") == \
+        "Inside a dict inside a dict"
+
 def testTypeChoose():
     from xmlconfig import getConfig, LOCAL_NAMESPACE
     from core import stringIOWrapper
@@ -142,3 +164,20 @@ def testTypeChoose():
     assert type(conf.get("chosen")) is str
 
 # XXX Add binary constant
+
+def testTypeEncrypted():
+    from xmlconfig import getConfig, LOCAL_NAMESPACE
+    from core import stringIOWrapper
+    conf=getConfig()
+    conf.parse(stringIOWrapper(
+    u"""<?xml version="1.0" encoding="utf-8"?>
+    <config>
+        <constants>
+            <string key="password" options="salt:pYzSxGhzoc4H;encoding:base64">
+                UhRy2pLYh6g=
+            </string>
+        </constants>
+    </config>
+    """), LOCAL_NAMESPACE)
+    assert conf.get("password") == "password"
+
