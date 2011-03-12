@@ -19,7 +19,10 @@ def getConfig(name=""):
 
 # Rectify differences between Python 2 and Python3k
 # - urllib2 / urllib.request
-if sys.version_info >= (3,0):
+# Allow unit test modules to override the definition of urlopen
+if 'nose' in sys.modules:
+    from testImport import urlopen
+elif sys.version_info >= (3,0):
     import urllib.request, urllib.error, urllib.parse
     def urlopen(*args, **kwargs):
         return urllib.request.urlopen(*args, **kwargs)
@@ -256,7 +259,7 @@ class XMLConfig(XMLConfigParser):
                 'namespace':    namespace, 
                 'headers':      dict(content.headers.items())
             }
-        self.parse(content, namespace)
+            self.parse(content, namespace)
         content.close()
 
         for dst, src in self._links.items():
