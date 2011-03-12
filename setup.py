@@ -2,6 +2,12 @@
 # (c) 2011 klopen Enterprises.  See LICENSE.txt file for details
 
 from distutils.core import setup
+import os
+
+if os.name == "nt":
+    scripts = ["bin/xmlconfig.py"]
+else:
+    scripts = ["bin/xmlconfig"]
 
 setup(
     name="xmlconfig",
@@ -13,7 +19,7 @@ setup(
     url="http://code.google.com/p/xmlconfig/",
     packages=["xmlconfig","xmlconfig.plugins","xmlconfig.plugins.crypto"],
     package_dir={"xmlconfig": "src/xmlconfig"},
-    scripts=["bin/xmlconfig"],
+    scripts=scripts,
     long_description="""xmlconfig is a feature rich configuration parser 
     for the Python programming language providing a more flexable approach
     to configuring daemon-based software. It provides complex configuration
