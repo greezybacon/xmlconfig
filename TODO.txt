@@ -14,13 +14,16 @@ x magic environment (env) namespace
 - support password (key) for encrypted stuff
 x imports (circular reference auto-correct)
 x import changing local namespace or foreign document
-? references to non-imported namespaces
-x auto loading
+? references to non-imported namespaces (auto import)
+x auto loading -- use 'name' passed to getConfig()
 - auto loading -- search in subfolders inside folder name 'config'
-          and make 'config' folder name configurable
+        and make 'config' folder name configurable
+- auto loading -- popup (Tk) if more than one matching config is found
+        for user to select appropriate config. Shortest name matches
+        if none selected in so many seconds
 - auto updating (when file is modified)
 - event notification of updates
 - retrieve elements from config file with fall-back default value
-- installer (distutils)
+x installer (distutils)
 - installer creates unique host-key for en-/decryption
 - write support (perhaps to be used with (un)locking)
