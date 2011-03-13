@@ -12,6 +12,8 @@ def urlopen(*args, **kwargs):
 # real urlopen() function calls
 from io import StringIO
 from time import time
+import re
+from nose.tools import with_setup
 class MockUrlContent(StringIO):
     def __init__(self, content):
         super(MockUrlContent, self).__init__(content)
@@ -22,6 +24,7 @@ class MockUrlContent(StringIO):
     def close(self):
         pass
     
+scheme_re = re.compile(r'file:(/+)?')
 class MockUrlCache(dict):
     def __setitem__(self, name, content):
         super(MockUrlCache, self).__setitem__(name, MockUrlContent(content))
@@ -29,10 +32,24 @@ class MockUrlCache(dict):
     def __getitem__(self, name):
         if name in self:
             return super(MockUrlCache, self).__getitem__(name)
-        raise ValueError("{0}: Cannot find file content")
+        # Strip off 'file:[///]' from url
+        elif name.startswith('file:'):
+            try:
+                name= scheme_re.sub('', name)
+                return super(MockUrlCache, self).__getitem__(name)
+            except:
+                # Fall through
+                pass
+        # urlopen raises ValueError if unable to load content (not KeyError)
+        raise ValueError("{0}: Cannot find file content".format(name))
 
 Urls = MockUrlCache()
 
+def clear_configs():
+    from xmlconfig import clearConfigs
+    clearConfigs()
+
+@with_setup(clear_configs)
 def testImportContent():
     "Cannot import content from a file"
     from xmlconfig import getConfig, LOCAL_NAMESPACE
@@ -50,12 +67,12 @@ def testImportContent():
     """), LOCAL_NAMESPACE)
     assert conf.get("import") == "Content embedded in a file"
 
+@with_setup(clear_configs)
 def testImportConfig():
     "Cannot import another config file"
-    from xmlconfig import getConfig, LOCAL_NAMESPACE
-    from core import stringIOWrapper
+    from xmlconfig import getConfig
     Urls.clear()
-    Urls["file:config2.xml"] = \
+    Urls["config2.xml"] = \
     """<?xml version="1.0"?>
     <config>
         <constants>
@@ -63,8 +80,7 @@ def testImportConfig():
         </constants>
     </config>
     """
-    conf=getConfig()
-    conf.parse(stringIOWrapper(
+    Urls["config.xml"] = \
     u"""<?xml version="1.0" encoding="utf-8"?>
     <config>
         <constants namespace="import" src="file:config2.xml"/>
@@ -72,14 +88,17 @@ def testImportConfig():
             <string key="imported">%(import:key22)</string>
         </constants>
     </config>
-    """), LOCAL_NAMESPACE)
+    """
+    conf=getConfig()
+    conf.load("config.xml")
     assert conf.get("imported") == "This was imported from config2.xml"
 
+@with_setup(clear_configs)
 def testCircularImport():
     "Property detect circluar importing"
     from xmlconfig import getConfig
     Urls.clear()
-    Urls["file:config2.xml"] = \
+    Urls["config2.xml"] = \
     """<?xml version="1.0"?>
     <config>
         <constants namespace="circular" src="file:config.xml"/>        
@@ -91,8 +110,8 @@ def testCircularImport():
         </constants>
     </config>
     """
-    Urls["file:config.xml"] = \
-    """<?xml version="1.0" encoding="utf-8"?>
+    Urls["config.xml"] = \
+    """<?xml version="1.0"?>
     <config>
         <constants namespace="import" src="file:config2.xml"/>
         <constants>
@@ -107,3 +126,30 @@ def testCircularImport():
     conf.load("config.xml")
     assert conf.get("import:foreign") == \
         "Namespace changed in This was imported from config2.xml"
+
+@with_setup(clear_configs)
+def testRelativeImport():
+    """Transfer leading absolute or relative path to the location of 
+    documents imported"""
+    from xmlconfig import getConfig
+    Urls["../config/config2.xml"] = \
+    """<?xml version="1.0"?>
+    <config>
+        <constants>
+            <string key="key22">This was imported from config2.xml</string>
+        </constants>
+    </config>
+    """
+    Urls["../config/config.xml"] = \
+    """<?xml version="1.0" encoding="utf-8"?>
+    <config>
+        <constants namespace="import" src="file:config2.xml"/>
+        <constants>
+            <string key="imported">%(import:key22)</string>
+        </constants>
+    </config>
+    """
+    conf=getConfig()
+    conf.load("../config/config.xml")
+    assert conf.get("imported") == "This was imported from config2.xml"
+    

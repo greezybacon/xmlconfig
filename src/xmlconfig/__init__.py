@@ -16,20 +16,22 @@ def getConfig(name=""):
     if name not in __configs:
         __configs[name] = XMLConfig(name)
     return __configs[name]
+def clearConfigs():
+    __configs.clear()
 
 # Rectify differences between Python 2 and Python3k
 # - urllib2 / urllib.request
 # Allow unit test modules to override the definition of urlopen
 if 'nose' in sys.modules:
     from testImport import urlopen
-elif sys.version_info >= (3,0):
-    import urllib.request, urllib.error, urllib.parse
-    def urlopen(*args, **kwargs):
-        return urllib.request.urlopen(*args, **kwargs)
+if sys.version_info >= (3,0):
+    if 'urlopen' not in globals():
+        from urllib.request import urlopen
+    from urllib.parse import urlparse, urljoin, urlunparse
 else:
-    import urllib2
-    def urlopen(*args, **kwargs):
-        return urllib2.urlopen(*args, **kwargs)
+    if 'urlopen' not in globals():
+        from urllib2 import urlopen
+    from urlparse import urlparse, urljoin, urlunparse
     
 class Options(dict):
     def __init__(self, defaults={}):
@@ -225,16 +227,49 @@ class XMLConfig(XMLConfigParser):
         """
         pass
 
-    def load(self, url, namespace=LOCAL_NAMESPACE):
-        # Keep track of loaded files to ward off circular dependencies
-        # XXX Save url of root-ly loaded document so that it can be
-        # XXX prepended to additionally sourced documents later
+    def load(self, url, namespace=LOCAL_NAMESPACE, for_import=False):
+        # Keep track of loaded files to ward off circular dependencies. If
+        # a file is requested to be loaded that is already, and it has not
+        # been modified since loading, don't load it.
         load = False
-        try:
-            content = urlopen(url)
-        except ValueError:
-            url = "file:" + url
-            content = urlopen(url)
+        # If this is an import, then mangle the url if necessary to match
+        # the (relative) path of the originally-loaded document. For instance,
+        # if a config file named config.xml sources a second config file
+        # named config2.xml, and the first one is loded for a different path
+        # as 'path/to/config.xml', when the second document is loaded, it
+        # should be loaded as 'path/to/config2.xml'. In otherwords, we need
+        # to transfer the leading path from the original document to the
+        # one being imported. This will also be required for element content
+        # sourcing as well.
+        if for_import:
+            # Prepend the path of the originally loaded document onto the
+            # file to be loaded. Whether the new path is relative or 
+            # absolute, urljoin will take care of it
+            parts = urlparse(url)
+            new_url = urljoin(self._original_url, parts.path)
+        else:
+            # Normalize the URL for consistent caching. Assume it's a file 
+            # if no protocol was specified in the url. This will help ensure
+            # that if the file is to be sourced later under a equivalent but
+            # different URL, that it will still match this file in the URL
+            # cache below.
+            parts = urlparse(url)
+            new_url = urlunparse((parts.scheme or 'file', parts.netloc, 
+                parts.path, parts.params, parts.query, parts.fragment))
+        # Fix a python bug: if the path didn't start with a leading 
+        # slash, the urlunparse (and urlunsplit too) are nice enough
+        # to put one in (for file: scheme at least)
+        if not url.startswith('/'):
+            url = new_url.replace("file:///","file:")
+        else:
+            url = new_url
+        # Go ahead and open the url now so that we can check the time of
+        # last update (for reloading)
+        content = urlopen(url)
+        if len(self._files) == 0:
+            # This is the first document loaded. Remember it for future
+            # reloading and importing, etc.
+            self._original_url = url
         if url in self._files:
             # Don't load if the file is alread loaded under a difference
             # namespace
@@ -307,7 +342,8 @@ class Constants(XMLConfigParser, dict):
             raise ValueError("Cannot re-declare magic namespace 'env'")
         if self.options["src"] is not None:
             # Load in constants
-            getConfig(self.parent.name).load(self.options["src"], self.namespace)
+            getConfig(self.parent.name).load(self.options["src"], 
+                self.namespace, for_import=True)
         
     def startElement(self, name, attrs):
         # Manages the handler for this element's content
