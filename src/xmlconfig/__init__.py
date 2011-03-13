@@ -232,37 +232,8 @@ class XMLConfig(XMLConfigParser):
         # a file is requested to be loaded that is already, and it has not
         # been modified since loading, don't load it.
         load = False
-        # If this is an import, then mangle the url if necessary to match
-        # the (relative) path of the originally-loaded document. For instance,
-        # if a config file named config.xml sources a second config file
-        # named config2.xml, and the first one is loded for a different path
-        # as 'path/to/config.xml', when the second document is loaded, it
-        # should be loaded as 'path/to/config2.xml'. In otherwords, we need
-        # to transfer the leading path from the original document to the
-        # one being imported. This will also be required for element content
-        # sourcing as well.
-        if for_import:
-            # Prepend the path of the originally loaded document onto the
-            # file to be loaded. Whether the new path is relative or 
-            # absolute, urljoin will take care of it
-            parts = urlparse(url)
-            new_url = urljoin(self._original_url, parts.path)
-        else:
-            # Normalize the URL for consistent caching. Assume it's a file 
-            # if no protocol was specified in the url. This will help ensure
-            # that if the file is to be sourced later under a equivalent but
-            # different URL, that it will still match this file in the URL
-            # cache below.
-            parts = urlparse(url)
-            new_url = urlunparse((parts.scheme or 'file', parts.netloc, 
-                parts.path, parts.params, parts.query, parts.fragment))
-        # Fix a python bug: if the path didn't start with a leading 
-        # slash, the urlunparse (and urlunsplit too) are nice enough
-        # to put one in (for file: scheme at least)
-        if not url.startswith('/'):
-            url = new_url.replace("file:///","file:")
-        else:
-            url = new_url
+        # Get normalized, real location of url
+        url = self.get_real_location(url, for_import)
         # Go ahead and open the url now so that we can check the time of
         # last update (for reloading)
         content = urlopen(url)
@@ -304,6 +275,39 @@ class XMLConfig(XMLConfigParser):
             except:
                 # The target namespace hasn't been parsed yet
                 pass
+
+    def get_real_location(self, url, for_import=False):
+        # If this is an import, then mangle the url if necessary to match
+        # the (relative) path of the originally-loaded document. For instance,
+        # if a config file named config.xml sources a second config file
+        # named config2.xml, and the first one is loded for a different path
+        # as 'path/to/config.xml', when the second document is loaded, it
+        # should be loaded as 'path/to/config2.xml'. In otherwords, we need
+        # to transfer the leading path from the original document to the
+        # one being imported. This will also be required for element content
+        # sourcing as well.
+        if for_import:
+            # Prepend the path of the originally loaded document onto the
+            # file to be loaded. Whether the new path is relative or 
+            # absolute, urljoin will take care of it
+            parts = urlparse(url)
+            new_url = urljoin(self._original_url, parts.path)
+        else:
+            # Normalize the URL for consistent caching. Assume it's a file 
+            # if no protocol was specified in the url. This will help ensure
+            # that if the file is to be sourced later under a equivalent but
+            # different URL, that it will still match this file in the URL
+            # cache below.
+            parts = urlparse(url)
+            new_url = urlunparse((parts.scheme or 'file', parts.netloc, 
+                parts.path, parts.params, parts.query, parts.fragment))
+        # Fix a python bug(?): if the path didn't start with a leading 
+        # slash, the urlunparse (and urlunsplit too) are nice enough
+        # to put one in (for file: scheme at least)
+        if not url.startswith('/'):
+            return new_url.replace("file:///","file:")
+        else:
+            return new_url
 
     def parse(self, open_file, namespace):
         parser = make_parser()
@@ -501,14 +505,19 @@ class ContentProcessor(object):
     def process(self, constant, content):
         raise NotImplementedError()
     
-# XXX support not caching the value read from the URL
 @SimpleConstant.register_processor
 class ContentLoader(ContentProcessor):
     order=20
     def process(self, constant, content):
         if constant.options["src"] is not None:
             try:
-                fp = urlopen(constant.options["src"])
+                # Translate relative paths and such. We'll need to look up
+                # the actual XmlConfig handling this constant. It's root
+                # element will know the name originally passed into 
+                # getConfig(name)
+                url = getConfig(constant.root.name).get_real_location(
+                    constant.options["src"], for_import=True)
+                fp = urlopen(url)
             except ValueError:
                 # Invalid url
                 raise

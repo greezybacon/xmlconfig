@@ -52,19 +52,19 @@ def clear_configs():
 @with_setup(clear_configs)
 def testImportContent():
     "Cannot import content from a file"
-    from xmlconfig import getConfig, LOCAL_NAMESPACE
-    from core import stringIOWrapper
+    from xmlconfig import getConfig
     Urls.clear()
     Urls["file:file.txt"] = "Content embedded in a file"
-    conf=getConfig()
-    conf.parse(stringIOWrapper(
+    Urls["config.xml"] = \
     u"""<?xml version="1.0" encoding="utf-8"?>
     <config>
         <constants>
             <string key="import" src="file:file.txt"/>
         </constants>
     </config>
-    """), LOCAL_NAMESPACE)
+    """
+    conf=getConfig()
+    conf.load("config.xml")
     assert conf.get("import") == "Content embedded in a file"
 
 @with_setup(clear_configs)
