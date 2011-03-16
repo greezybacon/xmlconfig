@@ -1,10 +1,15 @@
-XML Config
+xmlconfig
 
 The goal of xmlconfig is to make difficult and complex software 
 configurations more flexible and manageable. There is some expense
 in this added flexibility, as xml configurations can be wordier and
 more obscure than traditional configuration mechanisms. This document
 aims to cover the general concepts in hopes of peaking your interest.
+
+Although xmlconfig is currently only supported on Python 2.6+ and 3.2+,
+the type names, options, and concepts are intentionally more language
+agnostic so they will continue to make sense as xmlconfig is ported to
+other languages.
 
 Documents
 =========
@@ -14,9 +19,9 @@ include your xml configuration inside an existing xml document if you
 would like. Otherwise, I recommend using a document with a root element
 of ``<config>``. The parser does not specifically look for ``<config>``
 elements, instead it will look for ``<constants>`` elements. These 
-elements will be the only content of the root element. You can specify
-more than one if you like, optionally specifying different namespaces for
-the enclosed constants. More on this in the namespaces section. A basic
+elements do not need to be the only content of the root element. You can 
+specify more than one if you like, optionally specifying different namespaces
+for the enclosed constants. More on this in the namespaces section. A basic
 configuration document might look like::
 
   <config>
@@ -37,10 +42,13 @@ Most basic types are supported out of the box
 * Lists (with configurable delimiter)
 
 The engine will parse the data of these elements and return data of the
-specific type. So string elements return str types, float elements return
-a Decimal types, snozberry elements return snozberry types, etc. This seems 
-relatively intuitive and unnecessary to explicitly write out, but later 
-we'll see why the type cannot always be easily inferred.
+specific type. So string elements return str types, bool elements return
+a bool types, snozberry elements return snozberry types, etc. The only 
+exception thus far is the float element, which returns a Python Decimal
+type to ensure the exact accuracy as represented in the configuration in
+your software. This seems relatively intuitive and unnecessary to 
+explicitly write out, but later we'll see why the type cannot always be 
+easily inferred.
 
 These simple constants are declared in the configuration like so::
 
@@ -53,6 +61,10 @@ These simple constants are declared in the configuration like so::
           <list key="knights">galahad,lancelot,bedevere,robin</list>
       </constants>
   </config>
+
+Constants are stored internally in a hashtable and are retrieved via their
+``key`` attribute. Therefore, the ``key`` attribute is required to be
+unique among all constants in the same namespace.
 
 Complex Types
 =============
@@ -75,11 +87,12 @@ together. Sections are also nestable if you please. So for instance::
           </section>
       </constants>
   </config>
-  
-Currently, you can put constants of any type inside a ``section``, however,
-you can only put a ``section`` in the root of a ``constants`` element or 
-inside another ``section``. In other words, you cannot create a list of
-sections, for instance.
+
+This will give you a hashtable with the key ``question1`` with two items, 
+``question`` and ``answer``. Currently, you can put constants of any type 
+inside a ``section``, however, you can only put a ``section`` in the root
+of a ``constants`` element or inside another ``section``. In other words,
+you cannot create a list of sections, for instance.
 
 Conditional Blocks
 ------------------
@@ -131,7 +144,7 @@ the configuration from both programs in each, without duplicating your work.
 A second example might be that several different programs need to make use
 of some common information, such as database connection strings or 
 passwords. These common constants can be placed into a common configuration
-document and be imported all the programs that need to make use of the
+document and be imported by all the programs that need to make use of the
 common data.
 
 To import another document's constants, use the ``src`` attribute of the
@@ -238,7 +251,7 @@ One namespace is both reserved and magical, *env*. Constants in the *env*
 namespace will resolve to their corresponding environment variables. You
 cannot use this namespace to define or modify environment variables, so
 don't attempt to import or create constants in the *env* namespace. To
-use the value of an environment if it is defined and use a default 
+use the value of an environment variable if it is defined and use a default 
 otherwise, you could use::
 
     <!-- Temporary location. Prefer TMPDIR environment variable if set
