@@ -182,6 +182,28 @@ def testTypeChoose():
     assert conf.get("chosen") == "when"
     assert type(conf.get("chosen")) is str
 
+from nose.tools import raises
+
+@raises(NameError)
+def testChooseImportOs():
+    from xmlconfig import getConfig, LOCAL_NAMESPACE
+    from core import stringIOWrapper
+    conf=getConfig()
+    conf.parse(stringIOWrapper(
+    u"""<?xml version="1.0" encoding="utf-8"?>
+    <config>
+        <constants>
+            <string key="please_break">
+                <choose>
+                    <default/>
+                    <when test="__import__('os').getuid() != 0">broken</when>
+                </choose>
+            </string>
+        </constants>
+    </config>
+    """), LOCAL_NAMESPACE)
+    assert conf.get("please_break") == ""
+
 # XXX Add binary constant
 
 def testTypeEncrypted():

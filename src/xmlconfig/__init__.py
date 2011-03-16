@@ -512,7 +512,7 @@ class ContentLoader(ContentProcessor):
         if constant.options["src"] is not None:
             try:
                 # Translate relative paths and such. We'll need to look up
-                # the actual XmlConfig handling this constant. It's root
+                # the actual XmlConfig handling this constant. Its root
                 # element will know the name originally passed into 
                 # getConfig(name)
                 url = getConfig(constant.root.name).get_real_location(
@@ -656,6 +656,9 @@ class ChooseHandler(SimpleConstant):
     vars = {
         "hostname": socket.gethostname()
     }
+    builtins = {
+        "__builtins__": {}
+    }
     
     # XXX Enforce required child 'default'
     
@@ -668,12 +671,16 @@ class ChooseHandler(SimpleConstant):
             elif isinstance(x, ChooseWhen):
                 # Eval the test element (safely)
                 try:
+                    # Note that Python will add a __builtins__ element with
+                    # the real builtins if one is not given
                     if eval(x.resolve_references(x.options["test"]), 
-                            {}, self.vars):
+                            self.builtins, self.vars):
                         self.selected = x
                         break
+                except NameError:
+                    raise
                 except:
-                    continue
+                    pass
         else:
             # None of the when elements matched. Use the default
             self.selected = self._default
