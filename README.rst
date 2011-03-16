@@ -3,7 +3,8 @@ XML Config
 The goal of xmlconfig is to make difficult and complex software 
 configurations more flexible and manageable. There is some expense
 in this added flexibility, as xml configurations can be wordier and
-more obscure than traditional configuration mechanisms.
+more obscure than traditional configuration mechanisms. This document
+aims to cover the general concepts in hopes of peaking your interest.
 
 Documents
 =========
@@ -55,6 +56,9 @@ These simple constants are declared in the configuration like so::
 
 Complex Types
 =============
+In an xml sense, complex types don't have textual content, they have other
+xml elements as their content. Let's do some cool stuff with other xml
+elements.
 
 Sections
 --------
@@ -106,6 +110,10 @@ used. To enable debugging on workstation1, you might use::
 The *debug* constant will have a ``True`` value when evaluated on host
 *workstation1* and ``False`` otherwise.
 
+Please note that you cannot execute arbitrary Python code in a ``test``
+attribute. You cannot import other Python modules, and the only local
+variables (other than ``hostname``) are defined by your program in advance.
+
 Importing
 =========
 Since usually many softwares are used together in an enterprise environment,
@@ -144,6 +152,36 @@ the imported document is assumed to be relative to the path of the
 document importing it. In other words, we assume that ``master.xml`` is in
 the same place as the file shown above.
 
+Import Element Content
+----------------------
+You can also defer the contents of an element to a file as well. For 
+instance, if you have a constant that contains javascript code to be
+executed in your program, it will be difficult to embed that into an xml
+file. First of all, your text editor probably won't highlight it properly,
+and secondly, you cannot use xml symbols such as ``<`` or ``>`` unless 
+you nest the element in some nasty ``<![CDATA[`` element, which definietly
+doesn't make things look prettier. The best option is to have a separate
+file named ``external_code.js`` and just import it into a ``string``
+or similar::
+
+    <string key="external_code" src="external_code.js" />
+
+This will load the contents of the ``external_code.js`` file into your
+configuration and be accessible via the ``external_code`` key.
+
+Element content is cast to the type of the element given, so you don't
+have to be limited to string content. For instance, if you have a file that
+lists email addresses, one per line, you can import that as a list::
+
+    <list key="distrubition" src="email_list.txt" delimiter="&#10;" />
+
+The ``&#10;`` might be a bit cryptic, but in xml, it is difficult to
+represent a standalone newline character. Technically, a newline character
+is ASCII character number 10, so we can encode character #10 in a simple
+xml entity as shown. Again, this assumes ``email_list.txt`` is in the
+same path as the configuration document that sourced it. See the section
+on relative paths (XXX) for more instructions.
+
 References
 ==========
 Now that you've imported some constants, you might want to base the 
@@ -165,7 +203,7 @@ In this example, it is assumed that the *master.xml* document defines a
 constant named ``base_output_path``. Locally we define a ``log_path``
 constant that is the ``log`` subfolder of that path.
 
-TODO: namespaces, magic env namespace
+TODO: namespaces
 
 Namespaces
 ==========
@@ -193,3 +231,23 @@ To import the ``master.xml`` document into the *master* namespace, you might::
 Here we give the namespace in the reference ``%(master:base_output_path)`` to
 indicate that the ``base_output_path`` constant is declared in the *master*
 namespace.
+
+Environment Variables
+---------------------
+One namespace is both reserved and magical, *env*. Constants in the *env* 
+namespace will resolve to their corresponding environment variables. You
+cannot use this namespace to define or modify environment variables, so
+don't attempt to import or create constants in the *env* namespace. To
+use the value of an environment if it is defined and use a default 
+otherwise, you could use::
+
+    <!-- Temporary location. Prefer TMPDIR environment variable if set
+         and default to /tmp otherwise -->
+    <string key="TMPDIR">
+        <choose>
+            <when test="'%(env:TMPDIR)' != ''">%(env:TMPDIR)</string>
+            <default>
+                /tmp
+            </default>
+        </choose>
+    </string>
