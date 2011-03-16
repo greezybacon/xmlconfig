@@ -50,6 +50,25 @@ def testTypeFloat():
     assert conf.get("float") == Decimal('3.14159265359')
     assert type(conf.get("float")) is Decimal
 
+def testTypeFloatExponent():
+    from xmlconfig import getConfig, LOCAL_NAMESPACE
+    from core import stringIOWrapper
+    conf=getConfig()
+    conf.parse(stringIOWrapper(
+    u"""<?xml version="1.0" encoding="utf-8"?>
+    <config>
+        <constants>
+            <float key="avagadro">6.023E+23</float>
+        </constants>
+    </config>
+    """), LOCAL_NAMESPACE)
+    from decimal import Decimal
+    print conf.get("avagadro")
+    assert conf.get("avagadro") == Decimal('6.023E+23')
+
+    # Float element returns Decimal-s for precision
+    from decimal import Decimal
+    assert conf.get("float") == Decimal('3.14159265359')
 def testTypeBool():
     from xmlconfig import getConfig, LOCAL_NAMESPACE
     from core import stringIOWrapper
