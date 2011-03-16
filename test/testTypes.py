@@ -108,6 +108,27 @@ def testTypeList():
     # Default type for list items is str
     assert conf.get("list") == ["1","2","3","4","5"]
     assert type(conf.get("list")) is list
+
+def testTypeListNewLineSeparated():
+    from xmlconfig import getConfig, LOCAL_NAMESPACE
+    from core import stringIOWrapper
+    conf=getConfig()
+    conf.parse(stringIOWrapper(
+    u"""<?xml version="1.0" encoding="utf-8"?>
+    <config>
+        <constants>
+            <list key="nl-list" delimiter="&#10;">
+            1
+            2
+            3
+            4
+            5
+            </list>
+        </constants>
+    </config>
+    """), LOCAL_NAMESPACE)
+    assert len(conf.get("nl-list")) == 5
+    assert conf.get("nl-list")[2] == "3"
     
 def testTypeDict():
     from xmlconfig import getConfig, LOCAL_NAMESPACE
