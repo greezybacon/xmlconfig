@@ -16,8 +16,6 @@ def getConfig(name=""):
     if name not in __configs:
         __configs[name] = XMLConfig(name)
     return __configs[name]
-def clearConfigs():
-    __configs.clear()
 
 # Rectify differences between Python 2 and Python3k
 # - urllib2 / urllib.request
@@ -277,6 +275,8 @@ class XMLConfig(XMLConfigParser):
                 pass
 
     def get_real_location(self, url, for_import=False):
+        # XXX: Support url as a urllib.request.Request instance as well
+        #      as a string.
         # If this is an import, then mangle the url if necessary to match
         # the (relative) path of the originally-loaded document. For instance,
         # if a config file named config.xml sources a second config file
