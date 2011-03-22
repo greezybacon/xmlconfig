@@ -553,7 +553,6 @@ class Python3kStringCrap(ContentProcessor):
         # Up to this point we try and keep the data in a binary form if
         # we can. Now we'll try and convert it to a string, which will
         # be required to resolve-references
-        # XXX Support a secondary encoding: base64;raw or base64;utf-8, etc.
         if not constant.has_option('binary-content'):
             if type(content) is bytes:
                 return content.decode()
@@ -661,6 +660,9 @@ class ChooseHandler(SimpleConstant):
     }
     
     # XXX Enforce required child 'default'
+
+    # XXX Define option for raising errors encountered in eval'ing <when>
+    #     elements. (KeyError for lookups would apply too)
     
     @property
     def content(self):
@@ -699,7 +701,7 @@ class ChooseWhen(SimpleConstant):
 # Load extensions
 from .plugins import crypto
 
-# EventHook class curtousey of Michael Foord,
+# EventHook class courtesy of Michael Foord,
 # http://www.voidspace.org.uk/python/weblog/arch%5Fd7%5F2007%5F02%5F03.shtml#e616
 class EventHook(object):
     def __init__(self):
