@@ -14,7 +14,7 @@ LOCAL_NAMESPACE="__local"
 __configs={}
 def getConfig(name=""):
     if name not in __configs:
-        __configs[name] = XMLConfig(name)
+        __configs[name] = XmlConfig(name)
     return __configs[name]
 
 # Rectify differences between Python 2 and Python3k
@@ -67,7 +67,7 @@ class Options(dict):
                 self[name] = attrs[name]
         self.process()
                     
-class XMLConfigParser(handler.ContentHandler, object):
+class XmlConfigParser(handler.ContentHandler, object):
     content_types = {}
     default_options = {}
     required_options = []
@@ -193,7 +193,7 @@ class XMLConfigParser(handler.ContentHandler, object):
     def link_namespace(self, namespace, newname):
         self.constants[namespace].link_to(newname)
 
-class XMLConfig(XMLConfigParser):
+class XmlConfig(XmlConfigParser):
     default_options = {
         'autoload-folder-name':     'config'
     }
@@ -201,7 +201,7 @@ class XMLConfig(XMLConfigParser):
     def __init__(self, name):
         self._files = {}
         self._links = {}
-        # Stuff from XMLConfigParser
+        # Stuff from XmlConfigParser
         self.parsers = []
         self.constants = {}
         self.parent = None
@@ -330,8 +330,8 @@ class XMLConfig(XMLConfigParser):
             for key, x in constants.items():
                 yield x
 
-@XMLConfig.register_child("constants")
-class Constants(XMLConfigParser, dict):
+@XmlConfig.register_child("constants")
+class Constants(XmlConfigParser, dict):
 
     content_types = {}
     default_options = {
@@ -394,7 +394,7 @@ class Constants(XMLConfigParser, dict):
         self._link = namespace
 
 @Constants.register_child("string")
-class SimpleConstant(XMLConfigParser):
+class SimpleConstant(XmlConfigParser):
     
     content_types={}
     content_processors=[]
@@ -650,9 +650,9 @@ class ChooseHandler(SimpleConstant):
     forbidden_options=["key"]
     
     import socket
-    # XXX Either move vars all the way up to the XMLConfig class
+    # XXX Either move vars all the way up to the XmlConfig class
     #     or provide some interface to get the add_var method into
-    #     the XMLConfig class
+    #     the XmlConfig class
     vars = {
         "hostname": socket.gethostname()
     }

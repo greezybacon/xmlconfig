@@ -46,8 +46,7 @@ class MockUrlCache(dict):
 Urls = MockUrlCache()
 
 def clear_configs():
-    from xmlconfig import clearConfigs
-    clearConfigs()
+    pass
 
 @with_setup(clear_configs)
 def testImportContent():
