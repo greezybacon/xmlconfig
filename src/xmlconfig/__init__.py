@@ -17,9 +17,6 @@ def getConfig(name=""):
         __configs[name] = XmlConfig(name)
     return __configs[name]
 
-def clearConfigs():
-    __configs.clear()
-
 # Rectify differences between Python 2 and Python3k
 # - urllib2 / urllib.request
 # Allow unit test modules to override the definition of urlopen
