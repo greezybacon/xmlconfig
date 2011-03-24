@@ -186,7 +186,7 @@ Element content is cast to the type of the element given, so you don't
 have to be limited to string content. For instance, if you have a file that
 lists email addresses, one per line, you can import that as a list::
 
-    <list key="distrubition" src="email_list.txt" delimiter="&#10;" />
+    <list key="distribution" src="email_list.txt" delimiter="&#10;" />
 
 The ``&#10;`` might be a bit cryptic, but in xml, it is difficult to
 represent a standalone newline character. Technically, a newline character
@@ -215,8 +215,6 @@ subfolders of this path::
 In this example, it is assumed that the *master.xml* document defines a 
 constant named ``base_output_path``. Locally we define a ``log_path``
 constant that is the ``log`` subfolder of that path.
-
-TODO: namespaces
 
 Namespaces
 ==========
@@ -258,7 +256,7 @@ otherwise, you could use::
          and default to /tmp otherwise -->
     <string key="TMPDIR">
         <choose>
-            <when test="'%(env:TMPDIR)' != ''">%(env:TMPDIR)</string>
+            <when test="'%(env:TMPDIR)' != ''">%(env:TMPDIR)</when>
             <default>
                 /tmp
             </default>
