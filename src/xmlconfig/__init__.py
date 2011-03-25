@@ -146,7 +146,6 @@ class XmlConfig(XmlConfigParser):
         self._files = {}
         self.links = {}
         self.documents = {}
-        self.constants = {}
         self.parent = None
         self.name = name
 
@@ -159,14 +158,6 @@ class XmlConfig(XmlConfigParser):
             self.load(base_url + self.name + ".xml")
         except:
             raise
-
-    @property
-    def is_loaded(self):
-        """
-        Returns True if the configuration document has been found, loaded,
-        and successfully processed
-        """
-        pass
 
     # XXX: Move to XmlConfigDocument interface
 
@@ -250,15 +241,12 @@ class XmlConfig(XmlConfigParser):
             return new_url
 
     def parse(self, open_file, namespace):
-        parser = make_parser()
         if namespace in self.documents:
             doc = self.documents[namespace]
         else:
             doc = self.documents[namespace] = XmlConfigDocument(
                 namespace=namespace, parent=self)
-        doc.parser = parser
-        parser.setContentHandler(doc)
-        parser.parse(open_file)
+        doc.parse(open_file)
 
     def __getitem__(self, name):
         return self.lookup(name)
@@ -331,6 +319,11 @@ class XmlConfigDocument(XmlConfigParser):
     @parser.setter
     def parser(self, parser):
         self._parser = parser
+
+    def parse(self, open_file):
+        self._parser = make_parser()
+        self._parser.setContentHandler(self)
+        self._parser.parse(open_file)
 
     @property
     def namespace(self):
