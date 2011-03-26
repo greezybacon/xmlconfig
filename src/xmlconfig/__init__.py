@@ -316,10 +316,6 @@ class XmlConfigDocument(XmlConfigParser):
     def parser(self):
         return self._parser
 
-    @parser.setter
-    def parser(self, parser):
-        self._parser = parser
-
     def parse(self, open_file):
         self._parser = make_parser()
         self._parser.setContentHandler(self)
@@ -337,7 +333,7 @@ class XmlConfigDocument(XmlConfigParser):
         return self.constants[namespace].lookup(key)
 
     def __iter__(self):
-        return self.constants.itervalues()
+        return iter(self.constants.values())
 
 @XmlConfig.register_child("constants")
 class Constants(XmlConfigParser, dict):
@@ -487,7 +483,7 @@ class SimpleConstant(XmlConfigParser):
         
     def __unicode__(self):
         return str(self.value)
-        
+
 class ContentProcessor(object):
     order=10
     def process(self, constant, content):
