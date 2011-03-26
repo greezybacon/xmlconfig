@@ -2,12 +2,11 @@
 
 # XXX Prefer pycrypto if available
 from .blowfish import Blowfish 
-from xmlconfig import ContentProcessor, SimpleConstant
+from xmlconfig import ContentProcessor, SimpleConstant, ContentDecoder
 import hashlib, hmac
 
-@SimpleConstant.register_processor
+@SimpleConstant.register_processor(after=ContentDecoder)
 class EncryptedContent(ContentProcessor):
-    order=80
     def process(self, constant, content):
         if constant.has_option("salt"):
             # Key is an SHA1 hmac hash of the key attribute of the loaded 

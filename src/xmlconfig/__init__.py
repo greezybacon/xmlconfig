@@ -450,7 +450,6 @@ class SimpleConstant(XmlConfigParser):
                 if T is not None:
                     self._content=T
 
-            #
             # Cache result (maybe)
             if not self.options["no-cache"]:
                 self._content_settled=True
@@ -468,15 +467,18 @@ class SimpleConstant(XmlConfigParser):
                 + what[m.end():]
         return what
 
-        
     @classmethod
-    def register_processor(cls, processor):
-        for i,x in enumerate(cls.content_processors):
-            if x.order > processor.order:
-                cls.content_processors.insert(i, processor())
-                break
-        else:
-            cls.content_processors.append(processor())
+    def register_processor(cls, after=None):
+        def register(processor):
+            for i,x in enumerate(cls.content_processors):
+                if after is not None: 
+                    if isinstance(x,after):
+                        cls.content_processors.insert(i+1, processor())
+                        break
+            else:
+                cls.content_processors.append(processor())
+            return processor
+        return register
         
     def __repr__(self):
         return self.__unicode__()
@@ -489,9 +491,8 @@ class ContentProcessor(object):
     def process(self, constant, content):
         raise NotImplementedError()
     
-@SimpleConstant.register_processor
+@SimpleConstant.register_processor(after=None)
 class ContentLoader(ContentProcessor):
-    order=20
     def process(self, constant, content):
         if constant.options["src"] is not None:
             try:
@@ -508,31 +509,27 @@ class ContentLoader(ContentProcessor):
             else:
                 return fp.read()
             
-@SimpleConstant.register_processor
+@SimpleConstant.register_processor(after=ContentLoader)
 class WhitespaceStripper(ContentProcessor):
-    order=30
     def process(self, constant, content):
         if not constant.options["preserve-whitespace"]:
             return content.strip()
             
-@SimpleConstant.register_processor
+@SimpleConstant.register_processor(after=WhitespaceStripper)
 class ContentDecoder(ContentProcessor):
-    order=40
     def process(self, constant, content):
         if constant.options["encoding"] is not None:
             try:
                 decoder = codecs.getdecoder(constant.options["encoding"])
             except LookupError:
-                # Try it with _codec
+                # Python bug(?): Try it with _codec
                 decoder = codecs.getdecoder(constant.options["encoding"] + "_codec")
             # Don't convert to a string because it may be binary content.
             # It will be converted later if necessary
             return decoder(content.encode())[0]
 
-@SimpleConstant.register_processor
+@SimpleConstant.register_processor(after=ContentDecoder)
 class Python3kStringCrap(ContentProcessor):
-    order=85
-    
     def process(self, constant, content):
         # Up to this point we try and keep the data in a binary form if
         # we can. Now we'll try and convert it to a string, which will
@@ -541,14 +538,14 @@ class Python3kStringCrap(ContentProcessor):
             if type(content) is bytes:
                 return content.decode()
             
-@SimpleConstant.register_processor
+@SimpleConstant.register_processor(after=Python3kStringCrap)
 class ReferenceResolver(ContentProcessor):
-    order=90
-    
     def process(self, constant, content):
+        # Note: The resolve_references function cannot be moved here because
+        #       it is necessary for some complex content types
         if constant.options["resolve-references"]:
             return constant.resolve_references(content)
-                        
+
 @Constants.register_child("bytes")
 class BinaryConstant(SimpleConstant):
     default_options = SimpleConstant.default_options.copy()
