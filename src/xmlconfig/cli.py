@@ -10,6 +10,7 @@ class CliCommand(object):
     __command__ = ""
     __args__ = []
     __help__ = "(Undocumented)"
+    __usage__ = "%prog {0} [options]"
     __registry__ = {}
     # XXX Support a help interface with optparse
 
@@ -24,6 +25,7 @@ class CliCommand(object):
         return cls.__registry__[command]
 
 from xmlconfig.plugins import *
+import xmlconfig.validate
 from optparse import OptionParser
 import sys
 def cli_main():
@@ -31,11 +33,11 @@ def cli_main():
     # Look up the command
     try:
         cmd = CliCommand.get(args[0])
-        op = OptionParser(option_list=cmd.__args__, usage="%prog {0} [options]"
+        op = OptionParser(option_list=cmd.__args__, usage=cmd.__usage__
             .format(args[0]))
         options, args = op.parse_args(args=args[1:])
         cmd().run(options, *args)
-    except:
+    except Exception:
         op = OptionParser(usage="%prog command [options]",
             epilog="For detailed help on individual commands, use the "
                    "--help option with the command")
