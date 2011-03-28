@@ -148,6 +148,8 @@ class XmlConfig(XmlConfigParser):
         self.documents = {}
         self.parent = None
         self.name = name
+        # Events
+        self.on_load = EventHook()
 
     def autoload(self, base_url="file:"):
         # Look for a file with [self.name]*.xml in current folder, then 
@@ -198,6 +200,7 @@ class XmlConfig(XmlConfigParser):
             load=True
             
         if load:
+            self.on_load.fire(url, namespace)
             self._files[url] = {
                 'namespace':    namespace, 
                 'headers':      dict(content.headers.items())
@@ -471,10 +474,9 @@ class SimpleConstant(XmlConfigParser):
     def register_processor(cls, after=None):
         def register(processor):
             for i,x in enumerate(cls.content_processors):
-                if after is not None: 
-                    if isinstance(x,after):
-                        cls.content_processors.insert(i+1, processor())
-                        break
+                if after is not None and isinstance(x, after):
+                    cls.content_processors.insert(i+1, processor())
+                    break
             else:
                 cls.content_processors.append(processor())
             return processor
@@ -491,7 +493,7 @@ class ContentProcessor(object):
     def process(self, constant, content):
         raise NotImplementedError()
     
-@SimpleConstant.register_processor(after=None)
+@SimpleConstant.register_processor()
 class ContentLoader(ContentProcessor):
     def process(self, constant, content):
         if constant.options["src"] is not None:
