@@ -34,58 +34,61 @@ class ConstantLockUtility(CliCommand):
     __command__ = "lock"
     __help__ = "Lock encrypted elements in a config file"
     __args__ = [
-        make_option("-f","--file",metavar="FILE",dest="filename",
-            action="store",help="File to be locked",default=""),
         make_option("-i","--in-place",dest="output",
             action="store_false",default=True,
             help="Overwrite input file with locked XML config rather than " \
-                 "writing file to standard out")
+                 "writing file to standard out"),
+        make_option("-l","--salt-length", dest="saltlen",
+            type="int", default=6, metavar="bytes",
+            help="Set the length of the salt (in bytes) generated for the " \
+                 "encrypted content. Default is 6 bytes")
     ]
+    __usage__ = "%s {0} [options] file [file [...]]"
 
     def run(self, options, *args):
-        if not os.path.exists(options.filename):
-            raise ValueError("{0}: Config file does not exist".format(args[0]))
-        doc = parse(options.filename)
-        # Look for <constant> elements
-        for x, ns in self.findUnlockedElements(doc):
-            key= x.getAttribute('key').encode()
-            namespace= ns.encode()
-            # Generate a 72-bit random salt
-            salt = bytearray()
-            for z in range(9):
-                salt.append(random.randint(0,255))
-            salt= bytes(salt)
+        for f in args:
+            if not os.path.exists(f):
+                raise ValueError("{0}: Config file does not exist".format(args[0]))
+            doc = parse(f)
+            # Look for <constant> elements
+            for x, ns in self.findUnlockedElements(doc):
+                key= x.getAttribute('key').encode()
+                namespace= ns.encode()
+                # Generate a 72-bit random salt
+                salt = bytearray()
+                for z in range(options.saltlen):
+                    salt.append(random.randint(0,255))
+                salt= bytes(salt)
 
-            # Form the encryption key
-            ekey = hmac.new(key, salt + namespace,
-                hashlib.sha1).digest()
+                # Form the encryption key
+                ekey = hmac.new(key, salt + namespace,
+                    hashlib.sha1).digest()
 
-            # Get the element content
-            content= ""
-            for y in x.childNodes:
-                if isinstance(y, Text):
-                    # Perform the encryption
-                    # Preserve leading and trailing whitespace
-                    leading = re.search(r'^\s*', y.data).group(0)
-                    trailing = re.search(r'\s*$', y.data).group(0)
-                    y.data= leading + standard_b64encode(
-                        # XXX This looks disgusting
-                        Blowfish(ekey).encrypt(y.data.strip().encode())).decode() \
-                        + trailing
+                # Get the element content
+                for y in x.childNodes:
+                    if isinstance(y, Text):
+                        # Perform the encryption
+                        # Preserve leading and trailing whitespace
+                        leading = re.search(r'^\s*', y.data).group(0)
+                        trailing = re.search(r'\s*$', y.data).group(0)
+                        y.data= leading + standard_b64encode(
+                            # XXX This looks disgusting
+                            Blowfish(ekey).encrypt(y.data.strip().encode())).decode() \
+                            + trailing
 
-            opt= Options({"options":x.getAttribute("options")})
+                opt= Options({"options":x.getAttribute("options")})
 
-            # Drop unlocked option
-            del opt["unlocked"]
-            
-            # Add in new encryption options
-            opt['salt'] = standard_b64encode(salt).decode()
-            opt['locked'] = True
+                # Drop unlocked option
+                del opt["unlocked"]
+                
+                # Add in new encryption options
+                opt['salt'] = standard_b64encode(salt).decode()
+                opt['locked'] = True
 
-            # Add in encryption options to the element 'options' attribute
-            x.setAttribute("options", opt.options_string)
+                # Add in encryption options to the element 'options' attribute
+                x.setAttribute("options", opt.options_string)
 
-        print(doc.toxml())
+            print(doc.toxml())
             
     def findConstantsElements(self, element):
         ret = []
