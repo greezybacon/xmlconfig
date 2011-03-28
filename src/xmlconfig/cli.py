@@ -7,14 +7,28 @@ the content of encrypted elements.
 """
 
 class CliCommand(object):
+    """
+    Extensible command-line command designed around optparse. It allows for
+    a list of exported options using the make_option() function from 
+    optparse, and a custom usage in the help output. Subclasses should be
+    decorated with the register() classmethod for plumbing. Registered
+    subclasses will automatically be available via the 'xmlconfig' command-
+    line script.
+
+    The only required function for implementation is the run() method which
+    will receive the parsed options and arguments. This method just needs 
+    to do the work, because command-line arguments and options, including
+    help output, have already been processed before the run() method 
+    is invoked.
+    """
     __command__ = ""
     __args__ = []
     __help__ = "(Undocumented)"
     __usage__ = "%prog {0} [options]"
     __registry__ = {}
-    # XXX Support a help interface with optparse
 
-    run = NotImplemented
+    def run(self, options, *args): 
+        raise NotImplementedError
 
     @classmethod
     def register(cls, command):
