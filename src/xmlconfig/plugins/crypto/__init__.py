@@ -43,7 +43,7 @@ class ConstantLockUtility(CliCommand):
             help="Set the length of the salt (in bytes) generated for the " \
                  "encrypted content. Default is 6 bytes")
     ]
-    __usage__ = "%s {0} [options] file [file [...]]"
+    __usage__ = "%prog {0} [options] file [file [...]]"
 
     def run(self, options, *args):
         for f in args:
