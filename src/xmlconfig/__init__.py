@@ -681,9 +681,6 @@ class ChooseWhen(SimpleConstant):
     required_options=["test"]
     forbidden_options=["key"]
     
-# Load extensions
-from .plugins import crypto
-
 # EventHook class courtesy of Michael Foord,
 # http://www.voidspace.org.uk/python/weblog/arch%5Fd7%5F2007%5F02%5F03.shtml#e616
 class EventHook(object):
@@ -701,3 +698,6 @@ class EventHook(object):
     def fire(self, *args, **keywargs):
         for handler in self.__handlers:
             handler(*args, **keywargs)
+
+# Load extensions
+from .plugins import crypto
