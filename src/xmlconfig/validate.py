@@ -8,7 +8,9 @@ tools for now
 from xml.sax import make_parser
 from xml.sax.handler import ErrorHandler
 from xml.sax.xmlreader import Locator
-from xmlconfig import getConfig, urlopen, EventHook
+from xmlconfig import getConfig, urlopen, EventHook, SimpleConstant
+from xmlconfig.cli import CliCommand
+import os
 
 class Validator(object):
     checks = []
@@ -88,4 +90,29 @@ class WellFormedness(ValidationCheck, ErrorHandler):
 
 @Validator.register
 class CheckReferences(ValidationCheck):
-    pass
+    reference_regex = SimpleConstant.reference_regex
+
+@CliCommand.register
+class ValidateConfigFile(CliCommand):
+    __command__ = "validate"
+    __help__ = "Validate structure and contents of a xmlconfig document"
+
+    def __init__(self, *args, **kw):
+        super(ValidateConfigFile, self).__init__(*args, **kw)
+        self.errors=0
+        self.warnings=0
+    
+    def run(self, options, *args):
+        if not os.path.exists(options.filename):
+            raise ValueError("{0}: Config file does not exist".format(args[0]))
+
+        val = Validator()
+        val.on_error += self.emit_error
+        val.on_warning += self.emit_warning
+        val.validate("file:" + args[0])
+
+    def emit_warning(self, exception):
+        self.warnings += 1
+
+    def emit_error(self, exception):
+        self.errors += 1
