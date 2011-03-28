@@ -33,6 +33,7 @@ class CliCommand(object):
     @classmethod
     def register(cls, command):
         cls.__registry__[command.__command__] = command
+        return cls
 
     @classmethod
     def get(cls, command):
@@ -52,6 +53,7 @@ def cli_main():
         options, args = op.parse_args(args=args[1:])
         cmd().run(options, *args)
     except Exception:
+        raise
         op = OptionParser(usage="%prog command [options]",
             epilog="For detailed help on individual commands, use the "
                    "--help option with the command")
