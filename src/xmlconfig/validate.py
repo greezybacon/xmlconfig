@@ -103,13 +103,16 @@ class ValidateConfigFile(CliCommand):
         self.warnings=0
     
     def run(self, options, *args):
-        if not os.path.exists(options.filename):
+        if not os.path.exists(args[0]):
             raise ValueError("{0}: Config file does not exist".format(args[0]))
 
         val = Validator()
         val.on_error += self.emit_error
         val.on_warning += self.emit_warning
         val.validate("file:" + args[0])
+
+        print("Valiation finished with {0} errors and {1} warnings"
+            .format(self.errors, self.warnings))
 
     def emit_warning(self, exception):
         self.warnings += 1
